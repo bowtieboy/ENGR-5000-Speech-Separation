@@ -1,0 +1,5 @@
+# Default ignored files
+/SpeechSeparation.iws
+
+# Project exclude paths
+/target/
