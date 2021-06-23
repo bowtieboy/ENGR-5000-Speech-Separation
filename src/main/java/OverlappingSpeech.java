@@ -139,7 +139,7 @@ public class OverlappingSpeech
         AudioFormat input_format = audio_input.getFormat();
 
         // Define double array that will be returned
-        int audio_frames[] = new int[(int)audio_input.getFrameLength()];
+        double audio_doubles[] = new double[(int)audio_input.getFrameLength()];
 
         // Create byte array from the audio input
         byte [] audio_bytes = new byte[audio_input.available()];
@@ -151,18 +151,24 @@ public class OverlappingSpeech
         }
 
         // Convert the bytes to doubles
-        for (int i = 0; i < audio_frames.length; i++)
+        double max = 0.0; // Grab the largest value for normalization later on
+        for (int i = 0; i < audio_doubles.length; i++)
         {
-            int temp_int = 0;
+            short temp_short = 0;
             for (int j = 0; j < input_format.getFrameSize(); j++)
             {
-                temp_int = ((byte)temp_int | (audio_bytes[(i * input_format.getFrameSize()) + j] << (8 * j)));
+                temp_short = (short) (temp_short & 0x00FF | (short) (audio_bytes[(i * input_format.getFrameSize()) + j] << (8 * j)));
             }
-            audio_frames[i] = temp_int;
+            audio_doubles[i] = temp_short;
+            max = Math.max(max, Math.abs(temp_short));
         }
 
-        // Convert the ints to floats
-        double audio_doubles[] = Arrays.stream(audio_frames).asDoubleStream().toArray();
+        // Normalize the double array
+        for (int i = 0; i < audio_doubles.length; i++)
+        {
+            audio_doubles[i] /= max;
+        }
+
 
         return audio_doubles;
     }
