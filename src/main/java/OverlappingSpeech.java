@@ -3,11 +3,11 @@ import ai.djl.inference.*;
 import ai.djl.ndarray.*;
 import ai.djl.translate.*;
 
-import javax.sound.sampled.*;
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioInputStream;
 
 import java.io.IOException;
 import java.nio.file.*;
-import java.util.Arrays;
 
 
 public class OverlappingSpeech
@@ -87,7 +87,7 @@ public class OverlappingSpeech
     public AudioInputStream[] separateOverlappingSpeech(AudioInputStream audio_input) throws IOException
     {
         // Define array that will contain the separated audio streams
-        AudioInputStream separated_audio[] = new AudioInputStream[2];
+        AudioInputStream[] separated_audio = new AudioInputStream[2];
 
         // Grab the format of the audio
         AudioFormat input_format = audio_input.getFormat();
@@ -95,7 +95,7 @@ public class OverlappingSpeech
         // Determine if audio needs to be resampled
         if (input_format.getSampleRate() != this.separator_fs)
         {
-            AudioInputStream formatted_audio = resampleAudio(audio_input);
+            AudioInputStream formatted_audio = AudioPreprocessor.downsampleAudio(audio_input, separator_fs);
         }
         else
         {
@@ -104,8 +104,6 @@ public class OverlappingSpeech
 
         // Window the audio into the proper lengths to be fed through the system
 
-        // Convert the AudioInputStream arrays to float arrays for the models
-
         // Run each window through the speech separation models
 
         // Repackage the audio into two AudioInputStreams
@@ -113,69 +111,6 @@ public class OverlappingSpeech
         return separated_audio;
     }
 
-    private AudioInputStream resampleAudio(AudioInputStream audio_input) throws IOException
-    {
-        // Make the audio format easier to access
-        AudioFormat input_format = audio_input.getFormat();
 
-        // Convert the audio frames to an array of floats for manipulation
-        double frames[] = convertToDoubles(audio_input);
-
-
-        // Return this to prevent error for now
-        return audio_input;
-    }
-
-    private AudioInputStream[] windowAudio(AudioInputStream audio_input)
-    {
-        // Put here to prevent errors when building. Will need to calculate amount of windows needed first.
-        AudioInputStream windows[] = new AudioInputStream[2];
-        return windows;
-    }
-
-    private double[] convertToDoubles(AudioInputStream audio_input) throws IOException
-    {
-        // Grab the format of the input audio
-        AudioFormat input_format = audio_input.getFormat();
-
-        // Define double array that will be returned
-        double audio_doubles[] = new double[(int)audio_input.getFrameLength()];
-
-        // Create byte array from the audio input
-        byte [] audio_bytes = new byte[audio_input.available()];
-
-        // Loop through input and store the bytes
-        for (int i = 0; i < audio_bytes.length; i++)
-        {
-            audio_input.read(audio_bytes);
-        }
-
-        // Convert the bytes to doubles
-        double max = 0.0; // Grab the largest value for normalization later on
-        for (int i = 0; i < audio_doubles.length; i++)
-        {
-            short temp_short = 0;
-            for (int j = 0; j < input_format.getFrameSize(); j++)
-            {
-                temp_short = (short) (temp_short & 0x00FF | (short) (audio_bytes[(i * input_format.getFrameSize()) + j] << (8 * j)));
-            }
-            audio_doubles[i] = temp_short;
-            max = Math.max(max, Math.abs(temp_short));
-        }
-
-        // Normalize the double array
-        for (int i = 0; i < audio_doubles.length; i++)
-        {
-            audio_doubles[i] /= max;
-        }
-
-
-        return audio_doubles;
-    }
-
-//    private  AudioInputStream convertToInputStream(double[] audio_input)
-//    {
-//
-//    }
 
 }
