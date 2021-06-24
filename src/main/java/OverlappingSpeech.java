@@ -1,37 +1,43 @@
-import ai.djl.*;
+import ai.djl.Device;
+import ai.djl.MalformedModelException;
+import ai.djl.Model;
 import ai.djl.inference.*;
 import ai.djl.ndarray.*;
+import ai.djl.ndarray.types.Shape;
 import ai.djl.translate.*;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 
 public class OverlappingSpeech
 {
 
     // Stores the model predictors
-    private final Predictor<Double, Double> ovl_predictor;
-    private final Predictor<Double, Double> enc_predictor;
-    private final Predictor<Double, Double> mask_predictor;
-    private final Predictor<Double, Double> dec_predictor;
+    private final Predictor<Float[], Float[]> ovl_predictor;
+    private final Predictor<Float[], Float[][]> separator;
 
     // Store model parameters
     private final int separator_fs = 8000;
     private final int ovl_det_fs = 16000;
-    private final double window_length = 1; // Unit is seconds
+    private final float window_length = 1; // Unit is seconds
 
     public OverlappingSpeech(String model_dir) throws MalformedModelException, IOException {
 
         // Define locations of the saved model paths
         Path model_path = Paths.get(model_dir);
-        Model ovl_model = Model.newInstance("overlap_detection.zip");
-        Model enc_model = Model.newInstance("traced_encoder.zip");
-        Model mask_model = Model.newInstance("traced_masknet.zip");
-        Model dec_model = Model.newInstance("traced_decoder.zip");
+        Model ovl_model = Model.newInstance("overlap_detection.zip", Device.cpu());
+        Model enc_model = Model.newInstance("traced_encoder.zip", Device.cpu());
+        Model mask_model = Model.newInstance("traced_masknet.zip", Device.cpu());
+        Model dec_model = Model.newInstance("traced_decoder.zip", Device.cpu());
 
         // Load the models
         ovl_model.load(model_path);
@@ -39,38 +45,126 @@ public class OverlappingSpeech
         mask_model.load(model_path);
         dec_model.load(model_path);
 
-        // Define translator
-        Translator<Double, Double> translator = new Translator<Double, Double>() {
+        // Define ovl model path
+        Translator<Float[], Float[]> translator = new Translator<Float[], Float[]>() {
             @Override
             public Batchifier getBatchifier() {
                 return Batchifier.STACK;
             }
 
             @Override
-            public Double processOutput(TranslatorContext ctx, NDList list) throws Exception {
-                NDArray temp_arr = list.get(0);
-                return temp_arr.getDouble();
+            public Float[] processOutput(TranslatorContext ctx, NDList list) throws Exception {
+                float[] temp_Float = list.head().toFloatArray();
+                Float[] return_array = new Float[temp_Float.length];
+                for (int i = 0; i < return_array.length; i++)
+                {
+                    return_array[i] = temp_Float[i];
+                }
+                return return_array;
             }
 
             @Override
-            public NDList processInput(TranslatorContext ctx, Double input) throws Exception {
-                NDManager manager = ctx.getNDManager();
-                NDArray array = manager.create(new double[] {input});
+            public NDList processInput(TranslatorContext ctx, Float[] input) throws Exception {
+                float[] temp_Float = new float[input.length];
+                for (int i = 0; i < temp_Float.length; i++)
+                {
+                    temp_Float[i] = input[i];
+                }
+                NDArray array = ctx.getNDManager().create(temp_Float);
                 return new NDList(array);
             }
         };
+        Predictor<Float[], Float[]> ovl_predictor = ovl_model.newPredictor(translator);
 
-        // Define predictors
-        Predictor<Double, Double> ovl_predictor = ovl_model.newPredictor(translator);
-        Predictor<Double, Double> enc_predictor = enc_model.newPredictor(translator);
-        Predictor<Double, Double> mask_predictor = mask_model.newPredictor(translator);
-        Predictor<Double, Double> dec_predictor = dec_model.newPredictor(translator);
+        // Define masknet model path
+        Translator<NDArray, NDArray> translator_mask = new Translator<NDArray, NDArray>() {
+            @Override
+            public Batchifier getBatchifier() {
+                return Batchifier.STACK;
+            }
+
+            @Override
+            public NDArray processOutput(TranslatorContext ctx, NDList list) throws Exception {
+                return list.head();
+            }
+
+            @Override
+            public NDList processInput(TranslatorContext ctx, NDArray input) throws Exception {
+                return new NDList(input);
+            }
+        };
+        Predictor<NDArray, NDArray> mask_predictor = mask_model.newPredictor(translator_mask);
+        // Define decoder model path
+        Translator<NDArray, NDArray> translator_decoder = new Translator<NDArray, NDArray>() {
+            @Override
+            public Batchifier getBatchifier() {
+                return Batchifier.STACK;
+            }
+
+            @Override
+            public NDArray processOutput(TranslatorContext ctx, NDList list) throws Exception {
+                return list.head();
+            }
+
+            @Override
+            public NDList processInput(TranslatorContext ctx, NDArray input) throws Exception {
+                return new NDList(input);
+            }
+        };
+        Predictor<NDArray, NDArray> dec_predictor = dec_model.newPredictor(translator_decoder);
+        // Define encoder translator
+        Translator<Float[], Float[][]> translator_separator = new Translator<Float[], Float[][]>() {
+            @Override
+            public Batchifier getBatchifier() {
+                return Batchifier.STACK;
+            }
+
+            @Override
+            public Float[][] processOutput(TranslatorContext ctx, NDList list) throws Exception
+            {
+                // Apply the mask
+                NDArray mix_w = list.head();
+                NDArray masked = mask_predictor.predict(mix_w);
+
+                //array = array.stack(array);
+                // Decode the mask
+                NDArray sep_h = mix_w.mul(masked);
+                NDArray dec = dec_predictor.predict(sep_h.reshape(sep_h.size(1), sep_h.size(2)));
+
+                // Convert the mask to a float matrix
+                float[] temp_float = dec.toFloatArray();
+                Shape dec_shape = dec.getShape();
+                Float[][] separated_speech = new Float[dec_shape.dimension()][(int)dec_shape.size()];
+                for (int speaker = 0; speaker < dec_shape.dimension(); speaker++)
+                {
+                    for (int sample = 0; sample < (int)dec_shape.size(); sample++)
+                    {
+                        separated_speech[speaker][sample] = temp_float[(speaker * dec_shape.dimension()) + sample];
+                    }
+                }
+
+                return separated_speech;
+            }
+
+            @Override
+            public NDList processInput(TranslatorContext ctx, Float[] input) throws Exception
+            {
+                float[] temp_Float = new float[input.length];
+                for (int i = 0; i < temp_Float.length; i++)
+                {
+                    temp_Float[i] = input[i];
+                }
+                NDArray array = ctx.getNDManager().create(temp_Float);
+                return new NDList(array);
+            }
+        };
+        Predictor<Float[], Float[][]> separator_predictor = enc_model.newPredictor(translator_separator);
+
+
         
         // Store the predictors
         this.ovl_predictor = ovl_predictor;
-        this.enc_predictor = enc_predictor;
-        this.mask_predictor = mask_predictor;
-        this.dec_predictor = dec_predictor;
+        this.separator = separator_predictor;
 
     }
 
@@ -83,34 +177,75 @@ public class OverlappingSpeech
         return audio_input;
     }
 
-    // TODO Finish this function
-    public AudioInputStream[] separateOverlappingSpeech(AudioInputStream audio_input) throws IOException
-    {
+    // TODO Debug this function
+    public AudioInputStream[] separateOverlappingSpeech(AudioInputStream audio_input) throws IOException, TranslateException {
+
         // Define array that will contain the separated audio streams
         AudioInputStream[] separated_audio = new AudioInputStream[2];
 
         // Grab the format of the audio
         AudioFormat input_format = audio_input.getFormat();
+        int frame_length = (int) audio_input.getFrameLength();
 
         // Determine if audio needs to be resampled
         if (input_format.getSampleRate() != this.separator_fs)
         {
-            AudioInputStream formatted_audio = AudioPreprocessor.downsampleAudio(audio_input, separator_fs);
+            audio_input = AudioPreprocessor.downsampleAudio(audio_input, this.separator_fs);
         }
-        else
-        {
-            AudioInputStream formatted_audio = audio_input;
-        }
+
+        // Convert the audio to Floats array
+        float[] frames = AudioPreprocessor.convertToFloats(audio_input, frame_length);
 
         // Window the audio into the proper lengths to be fed through the system
+        List<Float[]> windows = AudioPreprocessor.makeWindows(frames, this.separator_fs, this.window_length);
 
-        // Run each window through the speech separation models
+        // Run the audio through the models
+        List<Float[][]> separated_speech = this.separator.batchPredict(windows);
+
+        // Separate the list of speaker windows into two vectors
+        float max_1 = 0f; // Used for scaling later on
+        //float max_2 = 0f;
+        Float[] speaker1 = new Float[separated_speech.size() * separated_speech.get(0)[0].length];
+        //Float[] speaker2 = new Float[separated_speech.size() * separated_speech.get(0)[0].length];
+        for (int w = 0; w < separated_speech.size(); w++)
+        {
+            Float[] speaker1_window = separated_speech.get(w)[0];
+            //Float[] speaker2_window = separated_speech.get(w)[1];
+            for (int s = 0; s < separated_speech.get(0)[0].length; s++)
+            {
+                speaker1[(w * separated_speech.get(0)[0].length) + s] = speaker1_window[s];
+                if (max_1 < Math.abs(speaker1_window[s])) max_1 = Math.abs(speaker1_window[s]);
+                //speaker2[(w * separated_speech.size()) + s] = speaker2_window[s];
+                //if (max_2 > Math.abs(speaker2_window[s])) max_2 = Math.abs(speaker2_window[s]);
+            }
+
+        }
+
+        // Convert the float arrays to int arrays while keeping the distance between the points the same.
+        // This is used for the PCM encoding later
+        int[] speaker1_pcm = new int[speaker1.length];
+        //int[] speaker2_pcm = new int[speaker2.length];
+        for (int i = 0; i < speaker1.length; i++)
+        {
+            speaker1_pcm[i] = (int) (speaker1[i] * max_1);
+            //speaker2_pcm[i] = (int) (speaker2[i] * max_2);
+        }
+
+        // Create input streams out of the byte arrays
+        InputStream speaker1_stream = new ByteArrayInputStream(AudioPreprocessor.int2byte(speaker1_pcm));
+        //InputStream speaker2_stream = new ByteArrayInputStream(AudioPreprocessor.int2byte(speaker2_pcm));
+
+        // Create output audio format
+        AudioFormat output_format = new AudioFormat(input_format.getEncoding(), this.separator_fs,
+                input_format.getSampleSizeInBits(), 1, input_format.getFrameSize(),
+                this.separator_fs, input_format.isBigEndian());
+
+        // Create AudioInputStreams
+        separated_audio[0] = new AudioInputStream(speaker1_stream, output_format, speaker1_pcm.length);
+        //separated_audio[1] = new AudioInputStream(speaker2_stream, output_format, speaker2_pcm.length);
 
         // Repackage the audio into two AudioInputStreams
-
         return separated_audio;
     }
-
-
 
 }

@@ -1,7 +1,7 @@
 public class DigitalFilters
 {
-    // Used for filtering 16kHz down to 8kHz
-    private final double[] lowpass_8k = new double[] {
+    // Used for filtering 16kHz down to 8kHz. Fstop is 4kHz
+    private static final double[] lowpass_8k = new double[] {
             0.004107475681421,  0.02333483941182, 0.004297307448838,-0.001739162251989,
             -0.003062118265377, 0.001833831978175, 0.002215802625304,-0.001832855098479,
             -0.001984720463481, 0.001880798308636, 0.001939162120181,-0.001928979353986,
@@ -51,7 +51,7 @@ public class DigitalFilters
     };
 
     // Bandpass for filtering 44100kHz down to 16kHz and allowing only human speech freqs. through
-    private final double[] bandpass_16k = new double[]{
+    private static final double[] bandpass_16k = new double[]{
             -0.02150272516411,-0.007730992967857,-0.004200439609664,4.897548738224e-05,
             0.002122811180409, 0.001285245698351,-0.0007058348021241,-0.001553460279354,
             -0.0006300203697085,0.0007487101716253,0.0009978027936497,-1.459276108929e-05,
@@ -369,15 +369,48 @@ public class DigitalFilters
             -0.02150272516411
     };
 
-    // TODO: Implement this function
-    public static double[] applyBandpassFilter(double[] audio)
+    public static float[] applyBandpassFilter(float[] audio)
     {
-        return new double[0];
+        return applyFIRFilter(audio, bandpass_16k);
     }
 
-    // TODO: Implement this function
-    public static double[] applyLowpassFilter(double[] audio)
+    public static float[] applyLowpassFilter(float[] audio)
     {
-        return new double[0];
+        return applyFIRFilter(audio, lowpass_8k);
+    }
+
+    private static float[] applyFIRFilter(float[] input, double[] impulse_response)
+    {
+        // Variables used for applying filtering
+        int length = impulse_response.length;
+        float[] delay_line = new float[length];
+        int count = 0;
+
+        // Final return variable
+        float[] output = new float[input.length];
+
+        for (int i = 0; i < input.length; i++)
+        {
+            output[i] = getOutputSample(input[i], length, delay_line, impulse_response, count);
+        }
+
+        return output;
+    }
+
+    private static float getOutputSample(float input_sample, int length, float[] delay_line, double[] impulse_response, int count)
+    {
+        delay_line[count] = input_sample;
+        float result = 0.0f;
+        int index = count;
+        for (int i=0; i<length; i++)
+        {
+            result += impulse_response[i] * delay_line[index--];
+            if (index < 0) index = length-1;
+        }
+        if (++count >= length)
+        {
+            count = 0;
+        }
+        return result;
     }
 }
