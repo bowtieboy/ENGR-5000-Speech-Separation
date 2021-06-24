@@ -118,19 +118,17 @@ public class AudioPreprocessor
 
     }*/
 
-    public static byte[] int2byte(int[] src)
+    public static byte[] short2byte(short[] src)
     {
         int srcLength = src.length;
-        byte[] dst = new byte[srcLength << 2];
-
+        byte[] dst = new byte[srcLength * 2];
+        int j = 0;
         for (int i=0; i<srcLength; i++)
         {
-            int x = src[i];
-            int j = i << 2;
-            dst[j++] = (byte) ((x >>> 0) & 0xff);
-            dst[j++] = (byte) ((x >>> 8) & 0xff);
-            dst[j++] = (byte) ((x >>> 16) & 0xff);
-            dst[j++] = (byte) ((x >>> 24) & 0xff);
+            short x = src[i];
+            j = i * 2;
+            dst[j] = (byte) ((x >>> 0) & 0xff);
+            dst[j + 1] = (byte) ((x >>> 8) & 0xff);
         }
         return dst;
     }

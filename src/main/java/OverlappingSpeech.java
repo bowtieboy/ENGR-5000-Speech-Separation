@@ -223,16 +223,16 @@ public class OverlappingSpeech
 
         // Convert the float arrays to int arrays while keeping the distance between the points the same.
         // This is used for the PCM encoding later
-        int[] speaker1_pcm = new int[speaker1.length];
+        short[] speaker1_pcm = new short[speaker1.length];
         //int[] speaker2_pcm = new int[speaker2.length];
         for (int i = 0; i < speaker1.length; i++)
         {
-            speaker1_pcm[i] = (int) (speaker1[i] * max_1);
+            speaker1_pcm[i] = (short) (speaker1[i] * max_1);
             //speaker2_pcm[i] = (int) (speaker2[i] * max_2);
         }
 
         // Create input streams out of the byte arrays
-        InputStream speaker1_stream = new ByteArrayInputStream(AudioPreprocessor.int2byte(speaker1_pcm));
+        InputStream speaker1_stream = new ByteArrayInputStream(AudioPreprocessor.short2byte(speaker1_pcm));
         //InputStream speaker2_stream = new ByteArrayInputStream(AudioPreprocessor.int2byte(speaker2_pcm));
 
         // Create output audio format
