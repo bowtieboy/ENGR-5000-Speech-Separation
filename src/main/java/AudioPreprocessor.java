@@ -2,8 +2,10 @@ import javax.sound.sampled.AudioFileFormat;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
@@ -11,7 +13,7 @@ import java.util.Vector;
 public class AudioPreprocessor
 {
 
-    private static float input_fs = 44100;
+    private static final float input_fs = 44100;
 
     public static AudioInputStream downsampleAudio(AudioInputStream audio_input, float new_fs) throws IOException {
         AudioFormat current_format = audio_input.getFormat();
@@ -34,7 +36,7 @@ public class AudioPreprocessor
     {
         // Define the shape of the windows
         int frame_per_window = (int) (sample_rate / window_length);
-        int num_windows = (int) (audio.length / frame_per_window);
+        int num_windows = audio.length / frame_per_window;
         ArrayList<Float[]> windows = new ArrayList<Float[]>();
         //
         // Float[][] windows = new Float[num_windows][frame_per_window];
@@ -45,7 +47,7 @@ public class AudioPreprocessor
             Float[] temp_arr = new Float[frame_per_window];
             for (int f = 0; f < frame_per_window; f++)
             {
-                temp_arr[f] = (Float) audio[(n * frame_per_window) + f];
+                temp_arr[f] = audio[(n * frame_per_window) + f];
             }
             windows.add(temp_arr);
         }
@@ -58,6 +60,7 @@ public class AudioPreprocessor
      * @return audio_floats: The byte values of audio_input converted to floats based on their encoding
      * @throws IOException
      */
+    // TODO: Round length of array up to nearest integer multiple of sample rate and pad with zeros
     public static float[] convertToFloats(AudioInputStream audio_input, int length) throws IOException
     {
         // Grab the format of the input audio
@@ -77,9 +80,6 @@ public class AudioPreprocessor
             bytes_available = audio_input.available();
         }
 
-        // Define float array that will be returned
-        float audio_floats[] = new float[frame_length];
-
         // Create byte array from the audio input
         byte [] audio_bytes = new byte[bytes_available];
 
@@ -91,7 +91,11 @@ public class AudioPreprocessor
 
         // Convert the bytes to floats
         float max = 0.0f; // Grab the largest value for normalization later on
-        for (int i = 0; i < audio_floats.length; i++)
+        // Pad the end of the float array with zeros to the nearest multiple of the sample rate
+        int padding_needed = (int) (input_format.getSampleRate() - (frame_length % input_format.getSampleRate()));
+        // Define float array that will be returned
+        float[] audio_floats = new float[frame_length + padding_needed];
+        for (int i = 0; i < audio_floats.length - padding_needed; i++)
         {
             short temp_short = 0;
             for (int j = 0; j < input_format.getFrameSize(); j++)
@@ -100,6 +104,11 @@ public class AudioPreprocessor
             }
             audio_floats[i] = temp_short;
             max = Math.max(max, Math.abs(temp_short));
+        }
+
+        for (int i = audio_floats.length - padding_needed; i < audio_floats.length; i++)
+        {
+            audio_floats[i] = 0f;
         }
 
         // Normalize the float array
@@ -112,11 +121,28 @@ public class AudioPreprocessor
         return audio_floats;
     }
 
-    // TODO: Implement this function
-    /*public static AudioInputStream convertToInputStream(float[] audio_input)
+    /**
+     * @param audio_input: float array that contains the audio information that will be encoded
+     * @param max_val: The maximum value of the float array. Used to maximize the volume
+     * @param desired_format: Desired audio format of the input stream. Encoding MUST BE PCM_Signed 16bit
+     * @return: An AudioInputStream object
+     */
+    public static AudioInputStream convertToInputStream(float[] audio_input, float max_val, AudioFormat desired_format)
     {
+        // Convert the float arrays to int arrays while keeping the distance between the points the same.
+        // This is used for the PCM encoding later
+        short[] pcm = new short[audio_input.length];
+        for (int i = 0; i < audio_input.length; i++)
+        {
+            pcm[i] = (short) (audio_input[i] * (Short.MAX_VALUE / max_val));
+        }
 
-    }*/
+        // Create input streams out of the byte arrays
+        InputStream speaker1_stream = new ByteArrayInputStream(AudioPreprocessor.short2byte(pcm));
+
+        // Create AudioInputStreams
+        return new AudioInputStream(speaker1_stream, desired_format, pcm.length);
+    }
 
     public static byte[] short2byte(short[] src)
     {

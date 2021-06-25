@@ -30,6 +30,10 @@ public class OverlappingSpeech
     private final int ovl_det_fs = 16000;
     private final float window_length = 1; // Unit is seconds
 
+    // Used for storing both of the masked outputs from masknet
+    private boolean first_speaker = false;
+    private NDArray sep_speakers;
+
     public OverlappingSpeech(String model_dir) throws MalformedModelException, IOException {
 
         // Define locations of the saved model paths
@@ -85,7 +89,17 @@ public class OverlappingSpeech
 
             @Override
             public NDArray processOutput(TranslatorContext ctx, NDList list) throws Exception {
-                return list.head();
+                if (!first_speaker)
+                {
+                    sep_speakers = list.head();
+                    first_speaker = true;
+                }
+                else
+                {
+                    sep_speakers = sep_speakers.concat(list.head());
+                    first_speaker = false;
+                }
+                return sep_speakers;
             }
 
             @Override
@@ -124,23 +138,26 @@ public class OverlappingSpeech
             {
                 // Apply the mask
                 NDArray mix_w = list.head();
-                NDArray masked = mask_predictor.predict(mix_w);
+                // Need to grab the combined matrix output, which requires a "batch predict" on a single input
+                ArrayList<NDArray> mix_w_list = new ArrayList<NDArray>();
+                mix_w_list.add(mix_w);
+                NDArray masked = mask_predictor.batchPredict(mix_w_list).get(1);
 
-                //array = array.stack(array);
                 // Decode the mask
+                mix_w = mix_w.stack(mix_w);
                 NDArray sep_h = mix_w.mul(masked);
-                NDArray dec = dec_predictor.predict(sep_h.reshape(sep_h.size(1), sep_h.size(2)));
+                NDArray dec_0 = dec_predictor.predict(sep_h.get(0));
+                NDArray dec_1 = dec_predictor.predict(sep_h.get(1));
 
                 // Convert the mask to a float matrix
-                float[] temp_float = dec.toFloatArray();
-                Shape dec_shape = dec.getShape();
-                Float[][] separated_speech = new Float[dec_shape.dimension()][(int)dec_shape.size()];
-                for (int speaker = 0; speaker < dec_shape.dimension(); speaker++)
+                float[] temp_float_0 = dec_0.toFloatArray();
+                float[] temp_float_1 = dec_1.toFloatArray();
+                Shape dec_shape = dec_0.getShape();
+                Float[][] separated_speech = new Float[2][(int)dec_shape.size()];
+                for (int sample = 0; sample < (int)dec_shape.size(); sample++)
                 {
-                    for (int sample = 0; sample < (int)dec_shape.size(); sample++)
-                    {
-                        separated_speech[speaker][sample] = temp_float[(speaker * dec_shape.dimension()) + sample];
-                    }
+                    separated_speech[0][sample] = temp_float_0[sample];
+                    separated_speech[1][sample] = temp_float_1[sample];
                 }
 
                 return separated_speech;
@@ -155,13 +172,12 @@ public class OverlappingSpeech
                     temp_Float[i] = input[i];
                 }
                 NDArray array = ctx.getNDManager().create(temp_Float);
+                //array = array.reshape(1, array.size());
                 return new NDList(array);
             }
         };
         Predictor<Float[], Float[][]> separator_predictor = enc_model.newPredictor(translator_separator);
 
-
-        
         // Store the predictors
         this.ovl_predictor = ovl_predictor;
         this.separator = separator_predictor;
@@ -177,7 +193,12 @@ public class OverlappingSpeech
         return audio_input;
     }
 
-    // TODO Debug this function
+    /**
+     * @param audio_input: The overlapping audio stream that needs to be separated
+     * @return: A list of AudioInputStreams with each entry corresponding to a separated speech stream
+     * @throws IOException
+     * @throws TranslateException
+     */
     public AudioInputStream[] separateOverlappingSpeech(AudioInputStream audio_input) throws IOException, TranslateException {
 
         // Define array that will contain the separated audio streams
@@ -204,36 +225,25 @@ public class OverlappingSpeech
 
         // Separate the list of speaker windows into two vectors
         float max_1 = 0f; // Used for scaling later on
-        //float max_2 = 0f;
-        Float[] speaker1 = new Float[separated_speech.size() * separated_speech.get(0)[0].length];
-        //Float[] speaker2 = new Float[separated_speech.size() * separated_speech.get(0)[0].length];
+        float max_2 = 0f;
+        float[] speaker1 = new float[separated_speech.size() * separated_speech.get(0)[0].length];
+        float[] speaker2 = new float[separated_speech.size() * separated_speech.get(1)[0].length];
         for (int w = 0; w < separated_speech.size(); w++)
         {
             Float[] speaker1_window = separated_speech.get(w)[0];
-            //Float[] speaker2_window = separated_speech.get(w)[1];
+            Float[] speaker2_window = separated_speech.get(w)[1];
             for (int s = 0; s < separated_speech.get(0)[0].length; s++)
             {
+                // Speaker 1
                 speaker1[(w * separated_speech.get(0)[0].length) + s] = speaker1_window[s];
                 if (max_1 < Math.abs(speaker1_window[s])) max_1 = Math.abs(speaker1_window[s]);
-                //speaker2[(w * separated_speech.size()) + s] = speaker2_window[s];
-                //if (max_2 > Math.abs(speaker2_window[s])) max_2 = Math.abs(speaker2_window[s]);
+
+                // Speaker 2
+                speaker2[(w * separated_speech.get(0)[1].length) + s] = speaker2_window[s];
+                if (max_2 < Math.abs(speaker2_window[s])) max_2 = Math.abs(speaker2_window[s]);
             }
 
         }
-
-        // Convert the float arrays to int arrays while keeping the distance between the points the same.
-        // This is used for the PCM encoding later
-        short[] speaker1_pcm = new short[speaker1.length];
-        //int[] speaker2_pcm = new int[speaker2.length];
-        for (int i = 0; i < speaker1.length; i++)
-        {
-            speaker1_pcm[i] = (short) (speaker1[i] * max_1);
-            //speaker2_pcm[i] = (int) (speaker2[i] * max_2);
-        }
-
-        // Create input streams out of the byte arrays
-        InputStream speaker1_stream = new ByteArrayInputStream(AudioPreprocessor.short2byte(speaker1_pcm));
-        //InputStream speaker2_stream = new ByteArrayInputStream(AudioPreprocessor.int2byte(speaker2_pcm));
 
         // Create output audio format
         AudioFormat output_format = new AudioFormat(input_format.getEncoding(), this.separator_fs,
@@ -241,8 +251,8 @@ public class OverlappingSpeech
                 this.separator_fs, input_format.isBigEndian());
 
         // Create AudioInputStreams
-        separated_audio[0] = new AudioInputStream(speaker1_stream, output_format, speaker1_pcm.length);
-        //separated_audio[1] = new AudioInputStream(speaker2_stream, output_format, speaker2_pcm.length);
+        separated_audio[0] = AudioPreprocessor.convertToInputStream(speaker1, max_1, output_format);
+        separated_audio[1] = AudioPreprocessor.convertToInputStream(speaker2, max_2, output_format);
 
         // Repackage the audio into two AudioInputStreams
         return separated_audio;
