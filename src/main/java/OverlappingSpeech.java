@@ -1,20 +1,24 @@
 import ai.djl.Device;
 import ai.djl.MalformedModelException;
 import ai.djl.Model;
-import ai.djl.inference.*;
-import ai.djl.ndarray.*;
+import ai.djl.inference.Predictor;
+import ai.djl.ndarray.NDArray;
+import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.types.Shape;
-import ai.djl.translate.*;
+import ai.djl.translate.Batchifier;
+import ai.djl.translate.TranslateException;
+import ai.djl.translate.Translator;
+import ai.djl.translate.TranslatorContext;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.*;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 
@@ -34,6 +38,14 @@ public class OverlappingSpeech
     private boolean first_speaker = false;
     private NDArray sep_speakers;
 
+    /**
+     * Creates the OverlappingSpeech object which is able to detect overlapping speech in an AudioInputStream and also
+     * separate out the overlapping speech into two AudioInputStream objects.
+     *
+     * @param model_dir: Directory where the model zip files are being stored.
+     * @throws MalformedModelException: Not a clue
+     * @throws IOException: Not a clue
+     */
     public OverlappingSpeech(String model_dir) throws MalformedModelException, IOException {
 
         // Define locations of the saved model paths
@@ -57,7 +69,8 @@ public class OverlappingSpeech
             }
 
             @Override
-            public Float[] processOutput(TranslatorContext ctx, NDList list) throws Exception {
+            public Float[] processOutput(TranslatorContext ctx, NDList list)
+            {
                 float[] temp_Float = list.head().toFloatArray();
                 Float[] return_array = new Float[temp_Float.length];
                 for (int i = 0; i < return_array.length; i++)
@@ -68,7 +81,8 @@ public class OverlappingSpeech
             }
 
             @Override
-            public NDList processInput(TranslatorContext ctx, Float[] input) throws Exception {
+            public NDList processInput(TranslatorContext ctx, Float[] input)
+            {
                 float[] temp_Float = new float[input.length];
                 for (int i = 0; i < temp_Float.length; i++)
                 {
@@ -88,7 +102,8 @@ public class OverlappingSpeech
             }
 
             @Override
-            public NDArray processOutput(TranslatorContext ctx, NDList list) throws Exception {
+            public NDArray processOutput(TranslatorContext ctx, NDList list)
+            {
                 if (!first_speaker)
                 {
                     sep_speakers = list.head();
@@ -103,7 +118,8 @@ public class OverlappingSpeech
             }
 
             @Override
-            public NDList processInput(TranslatorContext ctx, NDArray input) throws Exception {
+            public NDList processInput(TranslatorContext ctx, NDArray input)
+            {
                 return new NDList(input);
             }
         };
@@ -116,12 +132,14 @@ public class OverlappingSpeech
             }
 
             @Override
-            public NDArray processOutput(TranslatorContext ctx, NDList list) throws Exception {
+            public NDArray processOutput(TranslatorContext ctx, NDList list)
+            {
                 return list.head();
             }
 
             @Override
-            public NDList processInput(TranslatorContext ctx, NDArray input) throws Exception {
+            public NDList processInput(TranslatorContext ctx, NDArray input)
+            {
                 return new NDList(input);
             }
         };
@@ -139,7 +157,7 @@ public class OverlappingSpeech
                 // Apply the mask
                 NDArray mix_w = list.head();
                 // Need to grab the combined matrix output, which requires a "batch predict" on a single input
-                ArrayList<NDArray> mix_w_list = new ArrayList<NDArray>();
+                ArrayList<NDArray> mix_w_list = new ArrayList<>();
                 mix_w_list.add(mix_w);
                 NDArray masked = mask_predictor.batchPredict(mix_w_list).get(1);
 
@@ -164,7 +182,7 @@ public class OverlappingSpeech
             }
 
             @Override
-            public NDList processInput(TranslatorContext ctx, Float[] input) throws Exception
+            public NDList processInput(TranslatorContext ctx, Float[] input)
             {
                 float[] temp_Float = new float[input.length];
                 for (int i = 0; i < temp_Float.length; i++)
@@ -196,8 +214,8 @@ public class OverlappingSpeech
     /**
      * @param audio_input: The overlapping audio stream that needs to be separated
      * @return: A list of AudioInputStreams with each entry corresponding to a separated speech stream
-     * @throws IOException
-     * @throws TranslateException
+     * @throws IOException: Thrown if file cant be read
+     * @throws TranslateException: Thrown if issue with PyTorch model input form
      */
     public AudioInputStream[] separateOverlappingSpeech(AudioInputStream audio_input) throws IOException, TranslateException {
 

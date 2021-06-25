@@ -1,21 +1,27 @@
-import javax.sound.sampled.AudioFileFormat;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
+
 import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Vector;
 
 public class AudioPreprocessor
 {
 
+    // Input sample rate from the microphone (frames/sec)
     private static final float input_fs = 44100;
 
-    public static AudioInputStream downsampleAudio(AudioInputStream audio_input, float new_fs) throws IOException {
+    /**
+     * @param audio_input: AudioInputStream that will be downsampled
+     * @param new_fs: The desired sample rate (frames/sec)
+     * @return: An AudioInputStream with sample rate (frames/sec) of new_fs
+     */
+    public static AudioInputStream downsampleAudio(AudioInputStream audio_input, float new_fs)
+    {
         AudioFormat current_format = audio_input.getFormat();
 
         AudioFormat desired_format = new AudioFormat(current_format.getEncoding(), new_fs,
@@ -24,20 +30,25 @@ public class AudioPreprocessor
 
         if (AudioSystem.isConversionSupported(desired_format, current_format))
         {
-            AudioInputStream downsampled_audio = AudioSystem.getAudioInputStream(desired_format, audio_input);
-            return downsampled_audio;
+            return AudioSystem.getAudioInputStream(desired_format, audio_input);
         }
 
         else throw new IllegalStateException("Conversion not supported!");
 
     }
 
+    /**
+     * @param audio: audio values expressed as array of floats
+     * @param sample_rate: rate at which the audio array was sampled (frames/sec)
+     * @param window_length: How long (in seconds) the desired windows should be
+     * @return: List of floats that represent the windows of audios (with length of window_length)
+     */
     public static List<Float[]> makeWindows(float[] audio, int sample_rate, float window_length)
     {
         // Define the shape of the windows
         int frame_per_window = (int) (sample_rate / window_length);
         int num_windows = audio.length / frame_per_window;
-        ArrayList<Float[]> windows = new ArrayList<Float[]>();
+        ArrayList<Float[]> windows = new ArrayList<>();
         //
         // Float[][] windows = new Float[num_windows][frame_per_window];
 
@@ -58,17 +69,16 @@ public class AudioPreprocessor
     /**
      * @param audio_input: AudioInputStream object that will be converted to floats
      * @return audio_floats: The byte values of audio_input converted to floats based on their encoding
-     * @throws IOException
+     * @throws IOException: Thrown if AudioInputStream is null
      */
-    // TODO: Round length of array up to nearest integer multiple of sample rate and pad with zeros
     public static float[] convertToFloats(AudioInputStream audio_input, int length) throws IOException
     {
         // Grab the format of the input audio
         AudioFormat input_format = audio_input.getFormat();
 
-        // Perform checks incase audio was downsampled
-        int frame_length = -1;
-        int bytes_available = -1;
+        // Perform checks in case audio was downsampled
+        int frame_length;
+        int bytes_available;
         if ((int)audio_input.getFrameLength() <= 0)
         {
             frame_length = (int) ((input_format.getSampleRate() / input_fs) * length);
@@ -86,6 +96,7 @@ public class AudioPreprocessor
         // Loop through input and store the bytes
         for (int i = 0; i < audio_bytes.length; i++)
         {
+            //noinspection ResultOfMethodCallIgnored
             audio_input.read(audio_bytes);
         }
 
@@ -148,12 +159,12 @@ public class AudioPreprocessor
     {
         int srcLength = src.length;
         byte[] dst = new byte[srcLength * 2];
-        int j = 0;
+        int j;
         for (int i=0; i<srcLength; i++)
         {
             short x = src[i];
             j = i * 2;
-            dst[j] = (byte) ((x >>> 0) & 0xff);
+            dst[j] = (byte) ((x) & 0xff);
             dst[j + 1] = (byte) ((x >>> 8) & 0xff);
         }
         return dst;

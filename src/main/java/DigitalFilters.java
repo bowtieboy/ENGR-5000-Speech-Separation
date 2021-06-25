@@ -379,6 +379,11 @@ public class DigitalFilters
         return applyFIRFilter(audio, lowpass_8k);
     }
 
+    /**
+     * @param input: Array of values that the filter will be applied to
+     * @param impulse_response: Coefficients used by the FIR filter
+     * @return: Array of values that have been passed through the filter
+     */
     private static float[] applyFIRFilter(float[] input, double[] impulse_response)
     {
         // Variables used for applying filtering
@@ -392,11 +397,25 @@ public class DigitalFilters
         for (int i = 0; i < input.length; i++)
         {
             output[i] = getOutputSample(input[i], length, delay_line, impulse_response, count);
+            if (++count >= length)
+            {
+                count = 0;
+            }
         }
 
         return output;
     }
 
+    /**
+     * @param input_sample: Sample that will be passed through the filter
+     * @param length: length of the impulse response
+     * @param delay_line: circular line for FIR calculation
+     * @param impulse_response: Coefficients used by the FIR filter
+     * @param count: How many samples have been passed through. Resets when count==impulse_response.length. Might have
+     *             bug where count is not being incremented, will need testing when function is actually used
+     * @return: The filtered sample
+     */
+    // TODO: Determine if count is actually being incremented.
     private static float getOutputSample(float input_sample, int length, float[] delay_line, double[] impulse_response, int count)
     {
         delay_line[count] = input_sample;
@@ -406,10 +425,6 @@ public class DigitalFilters
         {
             result += impulse_response[i] * delay_line[index--];
             if (index < 0) index = length-1;
-        }
-        if (++count >= length)
-        {
-            count = 0;
         }
         return result;
     }
