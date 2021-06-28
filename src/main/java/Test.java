@@ -8,7 +8,6 @@ import java.io.IOException;
 
 public class Test {
 
-    @SuppressWarnings("unused")
     public static void main (String[] args) throws MalformedModelException, IOException, UnsupportedAudioFileException, TranslateException {
         String input_file_path = ".\\mix.wav";
         File input_file = new File(input_file_path);
