@@ -15,10 +15,12 @@ import javax.sound.sampled.AudioInputStream;
 
 import java.io.IOException;
 
+import java.lang.reflect.Array;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 
@@ -26,7 +28,7 @@ public class OverlappingSpeech
 {
 
     // Stores the model predictors
-    private final Predictor<Float[], Float[]> ovl_predictor;
+    private final Predictor<List<Float[]>, List<Float[][]>> ovl_predictor;
     private final Predictor<Float[], Float[][]> separator;
 
     // Store model parameters
@@ -62,38 +64,66 @@ public class OverlappingSpeech
         dec_model.load(model_path);
 
         // Define ovl model path
-        Translator<Float[], Float[]> translator = new Translator<Float[], Float[]>() {
+        Translator<List<Float[]>, List<Float[][]>> ovl_translator = new Translator<List<Float[]>, List<Float[][]>>() {
             @Override
-            public Batchifier getBatchifier() {
-                return Batchifier.STACK;
+            public Batchifier getBatchifier()
+            {
+                return new DetectionBatchifier();
             }
 
             @Override
-            public Float[] processOutput(TranslatorContext ctx, NDList list)
+
+            public List<Float[][]> processOutput(TranslatorContext ctx, NDList list)
             {
-                float[] temp_Float = list.head().toFloatArray();
-                Float[] return_array = new Float[temp_Float.length];
-                for (int i = 0; i < return_array.length; i++)
+                // Create list that will be returned
+                List<Float[][]> batches = new ArrayList<Float[][]>();
+                NDArray array = list.get(0);
+
+                // Loop through the batches
+                for (int i = 0; i < array.size(0); i++)
                 {
-                    return_array[i] = temp_Float[i];
+                    // Grab the batch array
+                    NDArray temp_array = array.get(i);
+                    float[] temp_float_array = temp_array.toFloatArray();
+
+                    // Useful variables for shortening line length. Will hopefully be optimized out by compiler
+                    int length = temp_float_array.length;
+                    int first = (int) temp_array.size(0);
+                    int second = (int) temp_array.size(1);
+
+                    // Populate batch array
+                    Float[][] temp_float_mat = new Float[first][second];
+                    for (int j = 0; j < length; j++)
+                    {
+                        temp_float_mat[j - (int) (Math.floor(j / first) * first)]
+                                            [(int) Math.floor(j / first)] = temp_float_array[j];
+                    }
+
+                    // Add the batch to the list
+                    batches.add(temp_float_mat);
                 }
-                return return_array;
+
+                return batches;
             }
 
             @Override
-            public NDList processInput(TranslatorContext ctx, Float[] input)
+            public NDList processInput(TranslatorContext ctx, List<Float[]> input)
             {
-                float[] temp_Float = new float[input.length];
-                for (int i = 0; i < temp_Float.length; i++)
+                float[][] temp_Float = new float[input.size()][input.get(0).length];
+                int batch_index = 0;
+                for (Float[] batch: input)
                 {
-                    temp_Float[i] = input[i];
+                    for (int i = 0; i < batch.length; i++)
+                    {
+                        temp_Float[batch_index][i] = batch[i];
+                    }
+                    batch_index++;
                 }
                 NDArray array = ctx.getNDManager().create(temp_Float);
                 return new NDList(array);
             }
         };
-        Predictor<Float[], Float[]> ovl_predictor = ovl_model.newPredictor(translator);
-
+        Predictor<List<Float[]>, List<Float[][]>> ovl_predictor = ovl_model.newPredictor(ovl_translator);
         // Define masknet model path
         Translator<NDArray, NDArray> translator_mask = new Translator<NDArray, NDArray>() {
             @Override
@@ -203,11 +233,93 @@ public class OverlappingSpeech
     }
 
     // TODO Implement this function
-    public AudioInputStream detectOverlappingSpeech(AudioInputStream audio_input)
-    {
+    public AudioInputStream detectOverlappingSpeech(AudioInputStream audio_input) throws IOException, TranslateException {
+        // Grab the format of the audio
         AudioFormat input_format = audio_input.getFormat();
+        int frame_length = (int) audio_input.getFrameLength();
 
-        // Return this to prevent error for now
+        // Determine if audio needs to be resampled
+        if (input_format.getSampleRate() != this.ovl_det_fs)
+        {
+            audio_input = AudioPreprocessor.downsampleAudio(audio_input, this.ovl_det_fs);
+        }
+
+        // Convert the audio to Floats array
+        float[] frames = AudioPreprocessor.convertToFloats(audio_input, frame_length);
+
+        // Create window parameters
+        SlidingWindow sliding_window = new SlidingWindow(1.0f / 16000f, 1.0f / 16000f,
+                                                    -0.5f / 16000f, Float.POSITIVE_INFINITY);
+        SlidingWindowFeature sliding_window_feature = new SlidingWindowFeature(frames, sliding_window);
+        SlidingWindow resolution = new SlidingWindow(0.0203125f, 0.0016875f,
+                                                    0f, Float.POSITIVE_INFINITY);
+
+        // Break the sliding window into batches of the correct size
+        Segment support = sliding_window_feature.extent();
+        sliding_window = new SlidingWindow(2.0f, 0.5f, 0f, Float.POSITIVE_INFINITY);
+        List<Segment> chunks = sliding_window.slideWindowOverSupport(support, true);
+
+        // Crop the batches
+        ArrayList<Float[]> batches = new ArrayList<Float[]>();
+        for (Segment batch: chunks)
+        {
+            batches.add(sliding_window_feature.crop(batch, "center", sliding_window.getDuration()));
+        }
+
+        // Run the batches through the network
+        List<Float[][]> fx = this.ovl_predictor.predict(batches);
+
+
+        // Determine which frames are overlapping
+        int n_frames = resolution.samples(chunks.get(chunks.size() - 1).getEnd(), "center");
+        int dimension = 2;
+        // Data[i] is the sum of all predictions for frame #1
+        float[][] data = new float[n_frames][dimension];
+        // k[i] is the number of chunks that overlap with frame #1
+        float[] k = new float[n_frames];
+        Arrays.fill(k, 0f);
+
+        String alignment = "strict";
+        float max = 0f; // Keep track of the max value of the data
+        for (int i = 0; i < fx.size(); i++)
+        {
+            // Grab the batch
+            Segment chunk = chunks.get(i);
+            Float[][] fx_ = fx.get(i);
+
+            // Indices of frames overlapped by chunk
+            int[] indices = resolution.crop(chunk, alignment, sliding_window.getDuration(), false);
+
+            // Accumulate the outputs
+            for (int j = 0; j < indices.length; j++)
+            {
+                data[indices[j]][0] = fx_[indices[j]][0];
+                data[indices[j]][1] = fx_[indices[j]][1];
+
+                // Grab the max value
+                if (max < Math.abs(fx_[indices[j]][0])) max = Math.abs(fx_[indices[j]][0]);
+                if (max < Math.abs(fx_[indices[j]][1])) max = Math.abs(fx_[indices[j]][1]);
+
+                // Keep track of the number of overlapping sequences
+                k[indices[j]] += 1;
+            }
+        }
+
+        // Compute average embedding
+        for (int i = 0; i < data.length; i++)
+        {
+            for (int j = 0; j < data[0].length; j++)
+            {
+                data[i][j] /= max;
+                data[i][j] = (float) Math.exp(data[i][j]);
+            }
+        }
+
+
+        SlidingWindowFeature overlap_prob = new SlidingWindowFeature(MatrixOperations.elementWiseSubtraction(
+                                                MatrixOperations.getColumn(data, 0), 1.0f), resolution);
+
+        // Return this so no errors
         return audio_input;
     }
 
@@ -275,5 +387,9 @@ public class OverlappingSpeech
         // Repackage the audio into two AudioInputStreams
         return separated_audio;
     }
+
+
+
+
 
 }

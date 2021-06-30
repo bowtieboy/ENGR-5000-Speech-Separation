@@ -85,7 +85,7 @@ public class SlidingWindow
      * @param fixed: Overrides focus's duration. If not desired, use -1
      * @return: Array of unique indices of matching segments
      */
-    public int[] crop(Segment focus, String mode, float fixed)
+    public int[] crop(Segment focus, String mode, float fixed, boolean return_ranges)
     {
         // List of arrays to be returned
         int[] indices = new int[2];
@@ -111,7 +111,7 @@ public class SlidingWindow
             }
             else indices[1] = this.samples(fixed, mode) + indices[0];
         }
-        if (mode.equals("center"))
+        else if (mode.equals("center"))
         {
             indices[0] = this.closestFrame(focus.getStart());
             // If not fixed
@@ -123,7 +123,17 @@ public class SlidingWindow
         }
         else throw new IllegalArgumentException("Mode is not one of the allowed values.");
 
-        return indices;
+        // Create array that goes from indice 0 to indice 1
+        if (!return_ranges)
+        {
+            int[] ranges = new int[indices[1] - indices[0]];
+            for (int i = 0; i < ranges.length; i++)
+            {
+                ranges[i] = indices[0] + i;
+            }
+            return ranges;
+        }
+        else return indices;
     }
 
     /**
@@ -181,5 +191,44 @@ public class SlidingWindow
     public int durationToSamples(float duration)
     {
         return this.segmentToRange(new Segment(0, duration))[1];
+    }
+
+    /**
+     * Creates an iterable list of segments that span the entirety of the given segment using the sliding windows parameters
+     * @param support: Segment that will be broken up
+     * @param align_last: Whether or not to use a final segment that aligns exactly with support regardless of step size
+     * @return: An iterable list of segments
+     */
+    public ArrayList<Segment> slideWindowOverSupport(Segment support, boolean align_last)
+    {
+        // Create arraylist that will be returned
+        ArrayList<Segment> segments = new ArrayList<>();
+
+        // Define initial start and end
+        float start = support.getStart();
+        float end = start + this.duration;
+
+        // Until the current segments end is greater than support's end, add more windows
+        while (end < support.getEnd())
+        {
+            // Add new segment
+            segments.add(new Segment(start, end));
+
+            // Change start and end values
+            start += this.step;
+            end += this.step;
+        }
+
+        // If last segment needs to be added, then add it
+        if (align_last)
+        {
+            end = support.getEnd();
+            start = end - this.duration;
+            segments.add(new Segment(start, end));
+        }
+
+
+        // Return the list
+        return segments;
     }
 }
