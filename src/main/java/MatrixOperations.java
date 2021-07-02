@@ -34,4 +34,28 @@ public class MatrixOperations
 
         return return_array;
     }
+
+    public static float getMaxElement(float[] vec)
+    {
+        float max = 0f;
+
+        for (int i = 0; i < vec.length; i++)
+        {
+            if (max < Math.abs(vec[i])) max = Math.abs(vec[i]);
+        }
+
+        return max;
+    }
+
+    public static float getAverageElement(float[] vec)
+    {
+        float avg = 0f;
+
+        for (int i = 0; i < vec.length; i++)
+        {
+            avg += vec[i];
+        }
+
+        return avg / vec.length;
+    }
 }

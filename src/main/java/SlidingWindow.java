@@ -231,4 +231,24 @@ public class SlidingWindow
         // Return the list
         return segments;
     }
+
+    /**
+     * Returns the ith Segment of the window
+     * @param index: Which index in the window is desired
+     * @return: The segment of ith index
+     */
+    public Segment getItem(int index)
+    {
+        // Start time for the segment
+        float start = this.start + (index * this.step);
+
+        // If the start time is after the end of the window, return null
+        if (start >= this.end)
+        {
+            return null;
+        }
+
+        return new Segment(start, start + this.duration);
+
+    }
 }

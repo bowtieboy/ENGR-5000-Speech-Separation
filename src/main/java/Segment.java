@@ -1,6 +1,6 @@
 public class Segment
 {
-    private float SEGMENT_PRECISION = 1*10^-6;
+    private float SEGMENT_PRECISION = (float) Math.pow(10, -6);
     private float start;
     private float end;
 
@@ -24,7 +24,7 @@ public class Segment
      * A segment is empty if the end is smaller than the start, or the duration is smaller than 1us
      * @return Whether the segment is empty or not
      */
-    private boolean isEmpty()
+    public boolean isNotEmpty()
     {
         return (this.end - this.start) > SEGMENT_PRECISION;
     }
@@ -35,7 +35,7 @@ public class Segment
      */
     public float getDuration()
     {
-        if (!isEmpty())
+        if (isNotEmpty())
         {
             return this.end - this.start;
         }
@@ -111,8 +111,8 @@ public class Segment
      */
     public Segment or(Segment other)
     {
-        if (isEmpty()) return other;
-        else if (other.isEmpty()) return this;
+        if (!isNotEmpty()) return other;
+        else if (!other.isNotEmpty()) return this;
         else
         {
             float start = Math.min(this.start, other.start);
@@ -128,7 +128,7 @@ public class Segment
      */
     public Segment xor(Segment other)
     {
-        if (isEmpty() || other.isEmpty()) throw new IllegalArgumentException("The gap between a segment and an empty" +
+        if (!isNotEmpty() || !other.isNotEmpty()) throw new IllegalArgumentException("The gap between a segment and an empty" +
                                                                             " segment is undefined.");
         float start = Math.min(this.end, other.end);
         float end = Math.max(this.start, other.start);

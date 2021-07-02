@@ -12,14 +12,22 @@ public class SlidingWindowFeature
         this.index = -1;
     }
 
+    // Getters
     private int length()
     {
         return this.data.length;
     }
-
     public float[] getData()
     {
         return this.data;
+    }
+    public int getNumber()
+    {
+        return this.data.length;
+    }
+    public SlidingWindow getWindow()
+    {
+        return this.window;
     }
 
     public Segment extent()

@@ -19,6 +19,7 @@ import java.lang.reflect.Array;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import java.sql.Time;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -93,10 +94,10 @@ public class OverlappingSpeech
 
                     // Populate batch array
                     Float[][] temp_float_mat = new Float[first][second];
-                    for (int j = 0; j < length; j++)
+                    for (int j = 0; j < length; j+=2)
                     {
-                        temp_float_mat[j - (int) (Math.floor(j / first) * first)]
-                                            [(int) Math.floor(j / first)] = temp_float_array[j];
+                        temp_float_mat[j / 2][0] = temp_float_array[j];
+                        temp_float_mat[j / 2][1] = temp_float_array[j+1];
                     }
 
                     // Add the batch to the list
@@ -232,7 +233,6 @@ public class OverlappingSpeech
 
     }
 
-    // TODO Implement this function
     public AudioInputStream detectOverlappingSpeech(AudioInputStream audio_input) throws IOException, TranslateException {
         // Grab the format of the audio
         AudioFormat input_format = audio_input.getFormat();
@@ -245,7 +245,8 @@ public class OverlappingSpeech
         }
 
         // Convert the audio to Floats array
-        float[] frames = AudioPreprocessor.convertToFloats(audio_input, frame_length);
+        float[] frames = AudioPreprocessor.convertToFloats(audio_input, frame_length,
+                                                            input_format.getSampleRate(), false);
 
         // Create window parameters
         SlidingWindow sliding_window = new SlidingWindow(1.0f / 16000f, 1.0f / 16000f,
@@ -275,12 +276,15 @@ public class OverlappingSpeech
         int dimension = 2;
         // Data[i] is the sum of all predictions for frame #1
         float[][] data = new float[n_frames][dimension];
+        for (int i = 0; i < data.length; i++)
+        {
+            Arrays.fill(data[i], 0f);
+        }
         // k[i] is the number of chunks that overlap with frame #1
         float[] k = new float[n_frames];
         Arrays.fill(k, 0f);
 
         String alignment = "strict";
-        float max = 0f; // Keep track of the max value of the data
         for (int i = 0; i < fx.size(); i++)
         {
             // Grab the batch
@@ -293,12 +297,8 @@ public class OverlappingSpeech
             // Accumulate the outputs
             for (int j = 0; j < indices.length; j++)
             {
-                data[indices[j]][0] = fx_[indices[j]][0];
-                data[indices[j]][1] = fx_[indices[j]][1];
-
-                // Grab the max value
-                if (max < Math.abs(fx_[indices[j]][0])) max = Math.abs(fx_[indices[j]][0]);
-                if (max < Math.abs(fx_[indices[j]][1])) max = Math.abs(fx_[indices[j]][1]);
+                data[indices[j]][0] += fx_[j][0];
+                data[indices[j]][1] += fx_[j][1];
 
                 // Keep track of the number of overlapping sequences
                 k[indices[j]] += 1;
@@ -310,17 +310,19 @@ public class OverlappingSpeech
         {
             for (int j = 0; j < data[0].length; j++)
             {
-                data[i][j] /= max;
+                data[i][j] /= Math.max(k[i], 1f);
                 data[i][j] = (float) Math.exp(data[i][j]);
             }
         }
 
-
         SlidingWindowFeature overlap_prob = new SlidingWindowFeature(MatrixOperations.elementWiseSubtraction(
                                                 MatrixOperations.getColumn(data, 0), 1.0f), resolution);
 
-        // Return this so no errors
-        return audio_input;
+        // Create timeline of overlapping speech
+        Timeline overlap = Binarize.apply(overlap_prob, 0);
+
+        // Return the AudioInputStream containing only overlapping speech
+        return getAudioFromTimeline(overlap, frames, this.ovl_det_fs, audio_input.getFormat());
     }
 
     /**
@@ -345,7 +347,8 @@ public class OverlappingSpeech
         }
 
         // Convert the audio to Floats array
-        float[] frames = AudioPreprocessor.convertToFloats(audio_input, frame_length);
+        float[] frames = AudioPreprocessor.convertToFloats(audio_input, frame_length,
+                                                            input_format.getSampleRate(), true);
 
         // Window the audio into the proper lengths to be fed through the system
         List<Float[]> windows = AudioPreprocessor.makeWindows(frames, this.separator_fs, this.window_length);
@@ -354,8 +357,6 @@ public class OverlappingSpeech
         List<Float[][]> separated_speech = this.separator.batchPredict(windows);
 
         // Separate the list of speaker windows into two vectors
-        float max_1 = 0f; // Used for scaling later on
-        float max_2 = 0f;
         float[] speaker1 = new float[separated_speech.size() * separated_speech.get(0)[0].length];
         float[] speaker2 = new float[separated_speech.size() * separated_speech.get(1)[0].length];
         for (int w = 0; w < separated_speech.size(); w++)
@@ -366,15 +367,15 @@ public class OverlappingSpeech
             {
                 // Speaker 1
                 speaker1[(w * separated_speech.get(0)[0].length) + s] = speaker1_window[s];
-                if (max_1 < Math.abs(speaker1_window[s])) max_1 = Math.abs(speaker1_window[s]);
 
                 // Speaker 2
                 speaker2[(w * separated_speech.get(0)[1].length) + s] = speaker2_window[s];
-                if (max_2 < Math.abs(speaker2_window[s])) max_2 = Math.abs(speaker2_window[s]);
             }
 
         }
 
+        float max_1 = MatrixOperations.getMaxElement(speaker1);
+        float max_2 = MatrixOperations.getMaxElement(speaker2);
         // Create output audio format
         AudioFormat output_format = new AudioFormat(input_format.getEncoding(), this.separator_fs,
                 input_format.getSampleSizeInBits(), 1, input_format.getFrameSize(),
@@ -388,7 +389,27 @@ public class OverlappingSpeech
         return separated_audio;
     }
 
+    private AudioInputStream getAudioFromTimeline(Timeline timeline, float[] entire_audio,
+                                                  float fs, AudioFormat new_format)
+    {
+        // Determine the size of the array
+        float duration = timeline.getDuration();
+        int n_frames = (int) Math.floor(fs * duration);
+        float[] audio = new float[n_frames];
 
+        // Determine the start and stop point for the overlapping speech
+        int start = (int) Math.floor(timeline.timeline_boundaries[0] * fs);
+
+        // Assign values
+        for (int i = 0; i < n_frames; i++)
+        {
+            audio[i] = entire_audio[i + start];
+        }
+
+        // Return the new AudioInputStream
+        return AudioPreprocessor.convertToInputStream(audio, MatrixOperations.getMaxElement(audio), new_format);
+
+    }
 
 
 

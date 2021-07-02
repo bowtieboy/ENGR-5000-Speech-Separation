@@ -71,17 +71,18 @@ public class AudioPreprocessor
      * @return audio_floats: The byte values of audio_input converted to floats based on their encoding
      * @throws IOException: Thrown if AudioInputStream is null
      */
-    public static float[] convertToFloats(AudioInputStream audio_input, int length) throws IOException
+    public static float[] convertToFloats(AudioInputStream audio_input, int original_length,
+                                          float input_fs, boolean padding) throws IOException
     {
         // Grab the format of the input audio
         AudioFormat input_format = audio_input.getFormat();
 
-        // Perform checks in case audio was downsampled
+        // Perform checks in case audio was downsampled (bug where frame length shows zero)
         int frame_length;
         int bytes_available;
         if ((int)audio_input.getFrameLength() <= 0)
         {
-            frame_length = (int) ((input_format.getSampleRate() / input_fs) * length);
+            frame_length = (int) ((input_format.getSampleRate() / input_fs) * original_length);
             bytes_available = frame_length * input_format.getFrameSize();
         }
         else
@@ -101,9 +102,12 @@ public class AudioPreprocessor
         }
 
         // Convert the bytes to floats
-        float max = 0.0f; // Grab the largest value for normalization later on
         // Pad the end of the float array with zeros to the nearest multiple of the sample rate
-        int padding_needed = (int) (input_format.getSampleRate() - (frame_length % input_format.getSampleRate()));
+        int padding_needed = 0;
+        if (padding)
+        {
+            padding_needed = (int) (input_format.getSampleRate() - (frame_length % input_format.getSampleRate()));
+        }
         // Define float array that will be returned
         float[] audio_floats = new float[frame_length + padding_needed];
         for (int i = 0; i < audio_floats.length - padding_needed; i++)
@@ -114,7 +118,6 @@ public class AudioPreprocessor
                 temp_short = (short) (temp_short & 0x00FF | (short) (audio_bytes[(i * input_format.getFrameSize()) + j] << (8 * j)));
             }
             audio_floats[i] = temp_short;
-            max = Math.max(max, Math.abs(temp_short));
         }
 
         for (int i = audio_floats.length - padding_needed; i < audio_floats.length; i++)
@@ -123,6 +126,7 @@ public class AudioPreprocessor
         }
 
         // Normalize the float array
+        float max = MatrixOperations.getMaxElement(audio_floats);
         for (int i = 0; i < audio_floats.length; i++)
         {
             audio_floats[i] /= max;
@@ -140,7 +144,7 @@ public class AudioPreprocessor
      */
     public static AudioInputStream convertToInputStream(float[] audio_input, float max_val, AudioFormat desired_format)
     {
-        // Convert the float arrays to int arrays while keeping the distance between the points the same.
+        // Convert the float arrays to short arrays while keeping the distance between the points the same.
         // This is used for the PCM encoding later
         short[] pcm = new short[audio_input.length];
         for (int i = 0; i < audio_input.length; i++)
@@ -168,6 +172,15 @@ public class AudioPreprocessor
             dst[j + 1] = (byte) ((x >>> 8) & 0xff);
         }
         return dst;
+    }
+
+    public static ArrayList<AudioInputStream> copyStream(AudioInputStream input, int length) throws IOException
+    {
+        ArrayList<AudioInputStream> copies = new ArrayList<AudioInputStream>();
+        float[] float_copy = convertToFloats(input, length, input.getFormat().getSampleRate(), false);
+        copies.add(convertToInputStream(float_copy, MatrixOperations.getMaxElement(float_copy), input.getFormat()));
+        copies.add(convertToInputStream(float_copy, MatrixOperations.getMaxElement(float_copy), input.getFormat()));
+        return copies;
     }
 
 }
