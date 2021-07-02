@@ -20,7 +20,7 @@ public class AudioPreprocessor
      * @param new_fs: The desired sample rate (frames/sec)
      * @return: An AudioInputStream with sample rate (frames/sec) of new_fs
      */
-    public static AudioInputStream downsampleAudio(AudioInputStream audio_input, float new_fs)
+    public static AudioInputStream resampleAudio(AudioInputStream audio_input, float new_fs)
     {
         AudioFormat current_format = audio_input.getFormat();
 
@@ -174,12 +174,23 @@ public class AudioPreprocessor
         return dst;
     }
 
-    public static ArrayList<AudioInputStream> copyStream(AudioInputStream input, int length) throws IOException
+    public static ArrayList<ArrayList<AudioInputStream>> copyStreams(ArrayList<AudioInputStream> input) throws IOException
     {
-        ArrayList<AudioInputStream> copies = new ArrayList<AudioInputStream>();
-        float[] float_copy = convertToFloats(input, length, input.getFormat().getSampleRate(), false);
-        copies.add(convertToInputStream(float_copy, MatrixOperations.getMaxElement(float_copy), input.getFormat()));
-        copies.add(convertToInputStream(float_copy, MatrixOperations.getMaxElement(float_copy), input.getFormat()));
+        ArrayList<ArrayList<AudioInputStream>> copies = new ArrayList<>();
+        int length;
+        for (AudioInputStream audioInputStream : input)
+        {
+            length = audioInputStream.available() / 2;
+            ArrayList<AudioInputStream> stream_copies = new ArrayList<>();
+            float[] float_copy = convertToFloats(audioInputStream, length,
+                    audioInputStream.getFormat().getSampleRate(), false);
+            stream_copies.add(convertToInputStream(float_copy, MatrixOperations.getMaxElement(float_copy),
+                    audioInputStream.getFormat()));
+            stream_copies.add(convertToInputStream(float_copy, MatrixOperations.getMaxElement(float_copy),
+                    audioInputStream.getFormat()));
+            copies.add(stream_copies);
+        }
+
         return copies;
     }
 

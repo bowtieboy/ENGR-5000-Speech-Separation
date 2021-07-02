@@ -15,11 +15,9 @@ import javax.sound.sampled.AudioInputStream;
 
 import java.io.IOException;
 
-import java.lang.reflect.Array;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import java.sql.Time;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -49,14 +47,14 @@ public class OverlappingSpeech
      * @throws MalformedModelException: Not a clue
      * @throws IOException: Not a clue
      */
-    public OverlappingSpeech(String model_dir) throws MalformedModelException, IOException {
+    public OverlappingSpeech(String model_dir, Device device) throws MalformedModelException, IOException {
 
         // Define locations of the saved model paths
         Path model_path = Paths.get(model_dir);
-        Model ovl_model = Model.newInstance("overlap_detection.zip", Device.cpu());
-        Model enc_model = Model.newInstance("traced_encoder.zip", Device.cpu());
-        Model mask_model = Model.newInstance("traced_masknet.zip", Device.cpu());
-        Model dec_model = Model.newInstance("traced_decoder.zip", Device.cpu());
+        Model ovl_model = Model.newInstance("overlap_detection.zip", device);
+        Model enc_model = Model.newInstance("traced_encoder.zip", device);
+        Model mask_model = Model.newInstance("traced_masknet.zip", device);
+        Model dec_model = Model.newInstance("traced_decoder.zip", device);
 
         // Load the models
         ovl_model.load(model_path);
@@ -67,22 +65,19 @@ public class OverlappingSpeech
         // Define ovl model path
         Translator<List<Float[]>, List<Float[][]>> ovl_translator = new Translator<List<Float[]>, List<Float[][]>>() {
             @Override
-            public Batchifier getBatchifier()
-            {
+            public Batchifier getBatchifier() {
                 return new DetectionBatchifier();
             }
 
             @Override
 
-            public List<Float[][]> processOutput(TranslatorContext ctx, NDList list)
-            {
+            public List<Float[][]> processOutput(TranslatorContext ctx, NDList list) {
                 // Create list that will be returned
-                List<Float[][]> batches = new ArrayList<Float[][]>();
+                List<Float[][]> batches = new ArrayList<>();
                 NDArray array = list.get(0);
 
                 // Loop through the batches
-                for (int i = 0; i < array.size(0); i++)
-                {
+                for (int i = 0; i < array.size(0); i++) {
                     // Grab the batch array
                     NDArray temp_array = array.get(i);
                     float[] temp_float_array = temp_array.toFloatArray();
@@ -94,10 +89,9 @@ public class OverlappingSpeech
 
                     // Populate batch array
                     Float[][] temp_float_mat = new Float[first][second];
-                    for (int j = 0; j < length; j+=2)
-                    {
+                    for (int j = 0; j < length; j += 2) {
                         temp_float_mat[j / 2][0] = temp_float_array[j];
-                        temp_float_mat[j / 2][1] = temp_float_array[j+1];
+                        temp_float_mat[j / 2][1] = temp_float_array[j + 1];
                     }
 
                     // Add the batch to the list
@@ -108,14 +102,11 @@ public class OverlappingSpeech
             }
 
             @Override
-            public NDList processInput(TranslatorContext ctx, List<Float[]> input)
-            {
+            public NDList processInput(TranslatorContext ctx, List<Float[]> input) {
                 float[][] temp_Float = new float[input.size()][input.get(0).length];
                 int batch_index = 0;
-                for (Float[] batch: input)
-                {
-                    for (int i = 0; i < batch.length; i++)
-                    {
+                for (Float[] batch : input) {
+                    for (int i = 0; i < batch.length; i++) {
                         temp_Float[batch_index][i] = batch[i];
                     }
                     batch_index++;
@@ -133,15 +124,11 @@ public class OverlappingSpeech
             }
 
             @Override
-            public NDArray processOutput(TranslatorContext ctx, NDList list)
-            {
-                if (!first_speaker)
-                {
+            public NDArray processOutput(TranslatorContext ctx, NDList list) {
+                if (!first_speaker) {
                     sep_speakers = list.head();
                     first_speaker = true;
-                }
-                else
-                {
+                } else {
                     sep_speakers = sep_speakers.concat(list.head());
                     first_speaker = false;
                 }
@@ -149,8 +136,7 @@ public class OverlappingSpeech
             }
 
             @Override
-            public NDList processInput(TranslatorContext ctx, NDArray input)
-            {
+            public NDList processInput(TranslatorContext ctx, NDArray input) {
                 return new NDList(input);
             }
         };
@@ -163,14 +149,12 @@ public class OverlappingSpeech
             }
 
             @Override
-            public NDArray processOutput(TranslatorContext ctx, NDList list)
-            {
+            public NDArray processOutput(TranslatorContext ctx, NDList list) {
                 return list.head();
             }
 
             @Override
-            public NDList processInput(TranslatorContext ctx, NDArray input)
-            {
+            public NDList processInput(TranslatorContext ctx, NDArray input) {
                 return new NDList(input);
             }
         };
@@ -183,8 +167,7 @@ public class OverlappingSpeech
             }
 
             @Override
-            public Float[][] processOutput(TranslatorContext ctx, NDList list) throws Exception
-            {
+            public Float[][] processOutput(TranslatorContext ctx, NDList list) throws Exception {
                 // Apply the mask
                 NDArray mix_w = list.head();
                 // Need to grab the combined matrix output, which requires a "batch predict" on a single input
@@ -202,9 +185,8 @@ public class OverlappingSpeech
                 float[] temp_float_0 = dec_0.toFloatArray();
                 float[] temp_float_1 = dec_1.toFloatArray();
                 Shape dec_shape = dec_0.getShape();
-                Float[][] separated_speech = new Float[2][(int)dec_shape.size()];
-                for (int sample = 0; sample < (int)dec_shape.size(); sample++)
-                {
+                Float[][] separated_speech = new Float[2][(int) dec_shape.size()];
+                for (int sample = 0; sample < (int) dec_shape.size(); sample++) {
                     separated_speech[0][sample] = temp_float_0[sample];
                     separated_speech[1][sample] = temp_float_1[sample];
                 }
@@ -213,11 +195,9 @@ public class OverlappingSpeech
             }
 
             @Override
-            public NDList processInput(TranslatorContext ctx, Float[] input)
-            {
+            public NDList processInput(TranslatorContext ctx, Float[] input) {
                 float[] temp_Float = new float[input.length];
-                for (int i = 0; i < temp_Float.length; i++)
-                {
+                for (int i = 0; i < temp_Float.length; i++) {
                     temp_Float[i] = input[i];
                 }
                 NDArray array = ctx.getNDManager().create(temp_Float);
@@ -233,7 +213,7 @@ public class OverlappingSpeech
 
     }
 
-    public AudioInputStream detectOverlappingSpeech(AudioInputStream audio_input) throws IOException, TranslateException {
+    public ArrayList<AudioInputStream> detectOverlappingSpeech(AudioInputStream audio_input) throws IOException, TranslateException {
         // Grab the format of the audio
         AudioFormat input_format = audio_input.getFormat();
         int frame_length = (int) audio_input.getFrameLength();
@@ -241,7 +221,7 @@ public class OverlappingSpeech
         // Determine if audio needs to be resampled
         if (input_format.getSampleRate() != this.ovl_det_fs)
         {
-            audio_input = AudioPreprocessor.downsampleAudio(audio_input, this.ovl_det_fs);
+            audio_input = AudioPreprocessor.resampleAudio(audio_input, this.ovl_det_fs);
         }
 
         // Convert the audio to Floats array
@@ -261,7 +241,7 @@ public class OverlappingSpeech
         List<Segment> chunks = sliding_window.slideWindowOverSupport(support, true);
 
         // Crop the batches
-        ArrayList<Float[]> batches = new ArrayList<Float[]>();
+        ArrayList<Float[]> batches = new ArrayList<>();
         for (Segment batch: chunks)
         {
             batches.add(sliding_window_feature.crop(batch, "center", sliding_window.getDuration()));
@@ -276,9 +256,9 @@ public class OverlappingSpeech
         int dimension = 2;
         // Data[i] is the sum of all predictions for frame #1
         float[][] data = new float[n_frames][dimension];
-        for (int i = 0; i < data.length; i++)
+        for (float[] datum : data)
         {
-            Arrays.fill(data[i], 0f);
+            Arrays.fill(datum, 0f);
         }
         // k[i] is the number of chunks that overlap with frame #1
         float[] k = new float[n_frames];
@@ -326,88 +306,114 @@ public class OverlappingSpeech
     }
 
     /**
-     * @param audio_input: The overlapping audio stream that needs to be separated
+     * @param audio_input_list: The list of overlapping audio streams that need to be separated
      * @return: A list of AudioInputStreams with each entry corresponding to a separated speech stream
      * @throws IOException: Thrown if file cant be read
      * @throws TranslateException: Thrown if issue with PyTorch model input form
      */
-    public AudioInputStream[] separateOverlappingSpeech(AudioInputStream audio_input) throws IOException, TranslateException {
+    public ArrayList<AudioInputStream[]> separateOverlappingSpeech(ArrayList<AudioInputStream> audio_input_list) throws IOException, TranslateException {
 
-        // Define array that will contain the separated audio streams
-        AudioInputStream[] separated_audio = new AudioInputStream[2];
+        // Define final return list
+        ArrayList<AudioInputStream[]> separated_streams = new ArrayList<>();
 
-        // Grab the format of the audio
-        AudioFormat input_format = audio_input.getFormat();
-        int frame_length = (int) audio_input.getFrameLength();
-
-        // Determine if audio needs to be resampled
-        if (input_format.getSampleRate() != this.separator_fs)
+        // Loop through each of the overlapping streams and separated them
+        for (AudioInputStream audio_input: audio_input_list)
         {
-            audio_input = AudioPreprocessor.downsampleAudio(audio_input, this.separator_fs);
-        }
+            // Define array that will contain the separated audio streams
+            AudioInputStream[] separated_audio = new AudioInputStream[2];
 
-        // Convert the audio to Floats array
-        float[] frames = AudioPreprocessor.convertToFloats(audio_input, frame_length,
-                                                            input_format.getSampleRate(), true);
+            // Grab the format of the audio
+            AudioFormat input_format = audio_input.getFormat();
+            int frame_length = (int) audio_input.getFrameLength();
 
-        // Window the audio into the proper lengths to be fed through the system
-        List<Float[]> windows = AudioPreprocessor.makeWindows(frames, this.separator_fs, this.window_length);
-
-        // Run the audio through the models
-        List<Float[][]> separated_speech = this.separator.batchPredict(windows);
-
-        // Separate the list of speaker windows into two vectors
-        float[] speaker1 = new float[separated_speech.size() * separated_speech.get(0)[0].length];
-        float[] speaker2 = new float[separated_speech.size() * separated_speech.get(1)[0].length];
-        for (int w = 0; w < separated_speech.size(); w++)
-        {
-            Float[] speaker1_window = separated_speech.get(w)[0];
-            Float[] speaker2_window = separated_speech.get(w)[1];
-            for (int s = 0; s < separated_speech.get(0)[0].length; s++)
+            // Determine if audio needs to be resampled
+            if (input_format.getSampleRate() != this.separator_fs)
             {
-                // Speaker 1
-                speaker1[(w * separated_speech.get(0)[0].length) + s] = speaker1_window[s];
-
-                // Speaker 2
-                speaker2[(w * separated_speech.get(0)[1].length) + s] = speaker2_window[s];
+                audio_input = AudioPreprocessor.resampleAudio(audio_input, this.separator_fs);
             }
 
+            // Convert the audio to Floats array
+            float[] frames = AudioPreprocessor.convertToFloats(audio_input, frame_length,
+                    input_format.getSampleRate(), true);
+
+            // Window the audio into the proper lengths to be fed through the system
+            List<Float[]> windows = AudioPreprocessor.makeWindows(frames, this.separator_fs, this.window_length);
+
+            // Run the audio through the models
+            List<Float[][]> separated_speech = this.separator.batchPredict(windows);
+
+            // Separate the list of speaker windows into two vectors
+            float[] speaker1 = new float[separated_speech.size() * separated_speech.get(0)[0].length];
+            float[] speaker2 = new float[separated_speech.size() * separated_speech.get(1)[0].length];
+            for (int w = 0; w < separated_speech.size(); w++)
+            {
+                Float[] speaker1_window = separated_speech.get(w)[0];
+                Float[] speaker2_window = separated_speech.get(w)[1];
+                for (int s = 0; s < separated_speech.get(0)[0].length; s++)
+                {
+                    // Speaker 1
+                    speaker1[(w * separated_speech.get(0)[0].length) + s] = speaker1_window[s];
+
+                    // Speaker 2
+                    speaker2[(w * separated_speech.get(0)[1].length) + s] = speaker2_window[s];
+                }
+
+            }
+
+            float max_1 = MatrixOperations.getMaxElement(speaker1);
+            float max_2 = MatrixOperations.getMaxElement(speaker2);
+            // Create output audio format
+            AudioFormat output_format = new AudioFormat(input_format.getEncoding(), this.separator_fs,
+                    input_format.getSampleSizeInBits(), 1, input_format.getFrameSize(),
+                    this.separator_fs, input_format.isBigEndian());
+
+            // Create AudioInputStreams
+            separated_audio[0] = AudioPreprocessor.convertToInputStream(speaker1, max_1, output_format);
+            separated_audio[1] = AudioPreprocessor.convertToInputStream(speaker2, max_2, output_format);
+
+            // Convert streams to 16k (Might have to do this depending on speaker embedding model
+            //separated_audio[0] = AudioPreprocessor.resampleAudio(separated_audio[0], this.ovl_det_fs);
+            //separated_audio[1] = AudioPreprocessor.resampleAudio(separated_audio[1], this.ovl_det_fs);
+
+            // Add the separated streams to the list
+            separated_streams.add(separated_audio);
         }
 
-        float max_1 = MatrixOperations.getMaxElement(speaker1);
-        float max_2 = MatrixOperations.getMaxElement(speaker2);
-        // Create output audio format
-        AudioFormat output_format = new AudioFormat(input_format.getEncoding(), this.separator_fs,
-                input_format.getSampleSizeInBits(), 1, input_format.getFrameSize(),
-                this.separator_fs, input_format.isBigEndian());
-
-        // Create AudioInputStreams
-        separated_audio[0] = AudioPreprocessor.convertToInputStream(speaker1, max_1, output_format);
-        separated_audio[1] = AudioPreprocessor.convertToInputStream(speaker2, max_2, output_format);
-
-        // Repackage the audio into two AudioInputStreams
-        return separated_audio;
+        return separated_streams;
     }
 
-    private AudioInputStream getAudioFromTimeline(Timeline timeline, float[] entire_audio,
+    private ArrayList<AudioInputStream> getAudioFromTimeline(Timeline timeline, float[] entire_audio,
                                                   float fs, AudioFormat new_format)
     {
-        // Determine the size of the array
-        float duration = timeline.getDuration();
-        int n_frames = (int) Math.floor(fs * duration);
-        float[] audio = new float[n_frames];
-
-        // Determine the start and stop point for the overlapping speech
-        int start = (int) Math.floor(timeline.timeline_boundaries[0] * fs);
-
-        // Assign values
-        for (int i = 0; i < n_frames; i++)
+        // Determine how many segments of overlapping speech exist in the audio
+        int n_segments = timeline.set.size();
+        // Determine the number of frames for each segment
+        int[] n_frames = new int[n_segments];
+        for (int i = 0; i < n_segments; i++)
         {
-            audio[i] = entire_audio[i + start];
+            n_frames[i] = (int) Math.floor(fs * timeline.set.get(i).getDuration());
         }
 
-        // Return the new AudioInputStream
-        return AudioPreprocessor.convertToInputStream(audio, MatrixOperations.getMaxElement(audio), new_format);
+        // Define lists that will contain the audio of each overlapping segment
+        ArrayList<float[]> audio = new ArrayList<>();
+        ArrayList<AudioInputStream> overlapping_segments = new ArrayList<>();
+
+        // Loop through each segment and assign the audio
+        int start;
+        for (int i = 0; i < n_segments; i++)
+        {
+            start = (int) (timeline.set.get(i).getStart() * fs);
+            // Assign values
+            float [] current_segment = Arrays.copyOfRange(entire_audio, start, start + n_frames[i]);
+
+            // Add segment to the list
+            overlapping_segments.add(AudioPreprocessor.convertToInputStream(current_segment,
+                                                                        MatrixOperations.getMaxElement(current_segment),
+                                                                        new_format));
+        }
+
+        // Return the new AudioInputStreams
+        return overlapping_segments;
 
     }
 
