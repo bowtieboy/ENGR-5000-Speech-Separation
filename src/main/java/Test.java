@@ -14,10 +14,17 @@ public class Test {
         File input_file = new File(input_file_path);
 
         // If a gpu is available, use that. Otherwise use the cpu
+        Device device;
+        if (Device.getGpuCount() > 0)
+        {
+            device = Device.gpu();
+        } else device = Device.cpu();
 
+        // FIXME: Bug where data isn't being loaded onto the GPU for calculations, but it needs to be. Use CPU for now
+        device = Device.cpu();
 
         // Load the models
-        OverlappingSpeech model = new OverlappingSpeech(".\\src\\main\\resources", Device.cpu());
+        OverlappingSpeech model = new OverlappingSpeech(".\\src\\main\\resources", device);
 
         // Load the audio data
         AudioInputStream audio = AudioSystem.getAudioInputStream(input_file);

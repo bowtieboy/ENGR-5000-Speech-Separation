@@ -112,7 +112,7 @@ public class OverlappingSpeech
                     batch_index++;
                 }
                 NDArray array = ctx.getNDManager().create(temp_Float);
-                return new NDList(array);
+                return new NDList(array.toDevice(device, false));
             }
         };
         Predictor<List<Float[]>, List<Float[][]>> ovl_predictor = ovl_model.newPredictor(ovl_translator);
