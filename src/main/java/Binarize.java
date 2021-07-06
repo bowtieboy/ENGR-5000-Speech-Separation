@@ -3,14 +3,14 @@ import java.util.ArrayList;
 
 public class Binarize
 {
-    private static float onset = 0.4009569122662475f;
-    private static float offset = 0.4009569122662475f;
+    private static float onset = 0.5f;
+    private static float offset = 0.5f;
     private String scale = "absolute";
     private boolean log_scale = false;
     private static float pad_onset = 0.0f;
     private static float pad_offset = 0.0f;
-    private static float min_duration_on = 0.1f;
-    private static float min_duration_off = 0.1f;
+    private static float min_duration_on = 2f;
+    private static float min_duration_off = 0.25f;
 
     public static Timeline apply(SlidingWindowFeature predictions, int dimension)
     {
@@ -28,12 +28,6 @@ public class Binarize
         float start = timestamps[0];
         boolean label = data[0] > onset;
 
-        int mini = 0;
-        int maxi = 1;
-
-        float onset_local = mini + onset * (maxi - mini);
-        float offset_local = mini + offset * (maxi - mini);
-
         // Timeline meant to store 'active' segments
         Timeline active = new Timeline(new ArrayList<Segment>());
 
@@ -46,7 +40,7 @@ public class Binarize
             if (label)
             {
                 // Switching from active to inactive
-                if (y < offset_local)
+                if (y < offset)
                 {
                     Segment segment = new Segment(start - pad_onset, t + pad_offset);
                     active.add(segment);
@@ -58,7 +52,7 @@ public class Binarize
             else
             {
                 // Switching from inactive to active
-                if (y > onset_local)
+                if (y > onset)
                 {
                     start = t;
                     label = true;

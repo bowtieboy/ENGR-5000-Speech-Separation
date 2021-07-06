@@ -1,3 +1,5 @@
+import ai.djl.translate.TranslateException;
+
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
@@ -11,10 +13,6 @@ import java.util.List;
 
 public class AudioPreprocessor
 {
-
-    // Input sample rate from the microphone (frames/sec)
-    private static final float input_fs = 44100;
-
     /**
      * @param audio_input: AudioInputStream that will be downsampled
      * @param new_fs: The desired sample rate (frames/sec)
@@ -40,27 +38,48 @@ public class AudioPreprocessor
     /**
      * @param audio: audio values expressed as array of floats
      * @param sample_rate: rate at which the audio array was sampled (frames/sec)
-     * @param window_length: How long (in seconds) the desired windows should be
+     * @param window_size: How long (in seconds) the desired windows should be
+     * @param window_ovl: How long (in seconds) each window should overlap the preceeding
      * @return: List of floats that represent the windows of audios (with length of window_length)
      */
-    public static List<Float[]> makeWindows(float[] audio, int sample_rate, float window_length)
+    public static ArrayList<Float[]> makeWindows(float[] audio, float sample_rate, float window_size, float window_ovl)
     {
+        // Make sure there is less overlap than the size of the actual window
+        assert window_ovl < window_size;
         // Define the shape of the windows
-        int frame_per_window = (int) (sample_rate / window_length);
-        int num_windows = audio.length / frame_per_window;
-        ArrayList<Float[]> windows = new ArrayList<>();
-        //
-        // Float[][] windows = new Float[num_windows][frame_per_window];
+        int window_size_samples = (int) (window_size * sample_rate);
+        int window_overlap_samples = (int) (window_ovl * sample_rate);
+        int window_delta_samples = window_size_samples - window_overlap_samples;
+        int window_amount = (int) Math.floor(audio.length / (float) window_delta_samples) - 1;
 
-        // Assign values to the windows
-        for (int n = 0; n < num_windows; n++)
+        // Create list of windows that will be returned
+        ArrayList<Float[]> windows = new ArrayList<>();
+        int idx;
+        boolean stop_windows = false;
+        for (int i = 0; i < window_amount; i++)
         {
-            Float[] temp_arr = new Float[frame_per_window];
-            for (int f = 0; f < frame_per_window; f++)
+            // Clear temp array
+            Float[] temp = new Float[window_size_samples];
+            // Copy data to temp array
+            for (int j = 0; j < window_size_samples; j++)
             {
-                temp_arr[f] = audio[(n * frame_per_window) + f];
+                // Check to make sure data exists
+                idx = j + (i * window_size_samples) - (i * window_overlap_samples);
+                if (idx < audio.length)
+                {
+                    temp[j] = audio[idx];
+                }
+                else
+                {
+                    temp[j] = 0f;
+                    stop_windows = true;
+                }
+
             }
-            windows.add(temp_arr);
+
+            // Add temp array to window list
+            windows.add(temp);
+            if(stop_windows) break;
         }
 
         return windows;
@@ -159,6 +178,11 @@ public class AudioPreprocessor
         return new AudioInputStream(speaker1_stream, desired_format, pcm.length);
     }
 
+    /**
+     * Converts the short array into a byte array
+     * @param src: Short array that will be converted
+     * @return: Little endian style byte array
+     */
     public static byte[] short2byte(short[] src)
     {
         int srcLength = src.length;
@@ -174,6 +198,13 @@ public class AudioPreprocessor
         return dst;
     }
 
+    /**
+     * Copies the given array list to a list of double the length. Needed because of how Java handles manipulation of
+     * AudioInputStream data
+     * @param input: List of AudioInputStreams that will be copied
+     * @return: List that contains two of each of the original lists of audio streams
+     * @throws IOException
+     */
     public static ArrayList<ArrayList<AudioInputStream>> copyStreams(ArrayList<AudioInputStream> input) throws IOException
     {
         ArrayList<ArrayList<AudioInputStream>> copies = new ArrayList<>();
@@ -192,6 +223,64 @@ public class AudioPreprocessor
         }
 
         return copies;
+    }
+
+    /**
+     * Splices a new audio vector from the input audio along the array of indices given
+     * @param original_audio: Original audio vector that will be cut down according to the indices
+     * @param indices: Indices of the original audio vector that will be appended to the new vector
+     * @return: Audio vector containing audio from original_audio with the indices of indices
+     */
+    public static float[] getFloatsFromIndices(float[] original_audio, ArrayList<int[]> indices)
+    {
+        // Calculate the size of the array that will be needed
+        int length = 0;
+        for (int[] idx: indices)
+        {
+            length += idx[1] - idx[0];
+        }
+
+        // Initialize float array
+        float[] floats = new float[length];
+
+        // Place values into the float array
+        int floats_idx = 0;
+        for (int[] idx: indices)
+        {
+            for (int i = idx[0]; i < idx[1]; i++)
+            {
+                floats[floats_idx] = original_audio[i];
+                floats_idx++;
+            }
+        }
+
+        return floats;
+    }
+
+    public static AudioInputStream preprocessAudio(AudioInputStream audio, VAD model) throws IOException,
+                                                                                             TranslateException
+    {
+        // Step 0: Record length in case of AudioInputStream bug
+        int length = (int) audio.getFrameLength();
+        // Step 1: Resample audio to 16kHz.
+        audio = resampleAudio(audio, 16000f);
+
+        // Step 2: Filter audio
+        AudioFormat original_format = audio.getFormat();
+        float[] filtered_frames = DigitalFilters.applyBandpassFilter(convertToFloats(audio, length,
+                                                                    original_format.getSampleRate(), false));
+
+        // Step 3: Create AudioInputStream out of the filtered audio
+        AudioFormat standard_format = new AudioFormat(original_format.getEncoding(), 16000,
+                original_format.getSampleSizeInBits(), 1, original_format.getFrameSize(),
+                160000, original_format.isBigEndian());
+        AudioInputStream filtered_audio = convertToInputStream(filtered_frames,
+                                                    MatrixOperations.getMaxElement(filtered_frames), standard_format);
+
+        // Apply VAD model to the filtered audio
+        AudioInputStream speech_only = model.separateSpeech(filtered_audio, standard_format);
+
+        return speech_only;
     }
 
 }

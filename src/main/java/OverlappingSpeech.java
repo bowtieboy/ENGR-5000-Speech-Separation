@@ -102,7 +102,8 @@ public class OverlappingSpeech
             }
 
             @Override
-            public NDList processInput(TranslatorContext ctx, List<Float[]> input) {
+            public NDList processInput(TranslatorContext ctx, List<Float[]> input)
+            {
                 float[][] temp_Float = new float[input.size()][input.get(0).length];
                 int batch_index = 0;
                 for (Float[] batch : input) {
@@ -112,7 +113,7 @@ public class OverlappingSpeech
                     batch_index++;
                 }
                 NDArray array = ctx.getNDManager().create(temp_Float);
-                return new NDList(array.toDevice(device, false));
+                return new NDList(array);
             }
         };
         Predictor<List<Float[]>, List<Float[][]>> ovl_predictor = ovl_model.newPredictor(ovl_translator);
@@ -195,13 +196,13 @@ public class OverlappingSpeech
             }
 
             @Override
-            public NDList processInput(TranslatorContext ctx, Float[] input) {
+            public NDList processInput(TranslatorContext ctx, Float[] input)
+            {
                 float[] temp_Float = new float[input.length];
                 for (int i = 0; i < temp_Float.length; i++) {
                     temp_Float[i] = input[i];
                 }
                 NDArray array = ctx.getNDManager().create(temp_Float);
-                //array = array.reshape(1, array.size());
                 return new NDList(array);
             }
         };
@@ -337,10 +338,14 @@ public class OverlappingSpeech
                     input_format.getSampleRate(), true);
 
             // Window the audio into the proper lengths to be fed through the system
-            List<Float[]> windows = AudioPreprocessor.makeWindows(frames, this.separator_fs, this.window_length);
+            List<Float[]> windows = AudioPreprocessor.makeWindows(frames, this.separator_fs,
+                                                                1.0f, 0.0f);
 
             // Run the audio through the models
             List<Float[][]> separated_speech = this.separator.batchPredict(windows);
+
+            // Check if there was overlapping speech in this audio window. If not, stop processing this segment
+            if (separated_speech.size() == 1) continue;
 
             // Separate the list of speaker windows into two vectors
             float[] speaker1 = new float[separated_speech.size() * separated_speech.get(0)[0].length];
@@ -372,8 +377,8 @@ public class OverlappingSpeech
             separated_audio[1] = AudioPreprocessor.convertToInputStream(speaker2, max_2, output_format);
 
             // Convert streams to 16k (Might have to do this depending on speaker embedding model
-            //separated_audio[0] = AudioPreprocessor.resampleAudio(separated_audio[0], this.ovl_det_fs);
-            //separated_audio[1] = AudioPreprocessor.resampleAudio(separated_audio[1], this.ovl_det_fs);
+            separated_audio[0] = AudioPreprocessor.resampleAudio(separated_audio[0], this.ovl_det_fs);
+            separated_audio[1] = AudioPreprocessor.resampleAudio(separated_audio[1], this.ovl_det_fs);
 
             // Add the separated streams to the list
             separated_streams.add(separated_audio);

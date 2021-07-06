@@ -1,3 +1,4 @@
+// TODO: Implement threading into this class to improve performance
 public class DigitalFilters
 {
     // Used for filtering 16kHz down to 8kHz. Fstop is 4kHz

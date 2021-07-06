@@ -58,4 +58,15 @@ public class MatrixOperations
 
         return avg / vec.length;
     }
+
+    public static float sumToIndex(float[] vec, int start_idx, int end_idx)
+    {
+        float sum = 0f;
+        for (int i = start_idx; i < end_idx; i++)
+        {
+            sum += vec[i];
+        }
+
+        return sum;
+    }
 }
