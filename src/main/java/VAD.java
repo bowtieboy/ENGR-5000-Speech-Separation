@@ -122,8 +122,7 @@ public class VAD
         float[] speech_only = AudioPreprocessor.getFloatsFromIndices(frames, speech_indices);
 
         // Create the return AudioInputStream
-        return AudioPreprocessor.convertToInputStream(speech_only, MatrixOperations.getMaxElement(speech_only),
-                                                      output_format);
+        return AudioPreprocessor.convertToInputStream(speech_only, output_format);
     }
 
     /**

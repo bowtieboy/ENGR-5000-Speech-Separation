@@ -214,7 +214,7 @@ public class OverlappingSpeech
 
     }
 
-    public ArrayList<AudioInputStream> detectOverlappingSpeech(AudioInputStream audio_input) throws IOException, TranslateException {
+    public Timeline detectOverlappingSpeech(AudioInputStream audio_input) throws IOException, TranslateException {
         // Grab the format of the audio
         AudioFormat input_format = audio_input.getFormat();
         int frame_length = (int) audio_input.getFrameLength();
@@ -300,10 +300,9 @@ public class OverlappingSpeech
                                                 MatrixOperations.getColumn(data, 0), 1.0f), resolution);
 
         // Create timeline of overlapping speech
-        Timeline overlap = Binarize.apply(overlap_prob, 0);
-
-        // Return the AudioInputStream containing only overlapping speech
-        return getAudioFromTimeline(overlap, frames, this.ovl_det_fs, audio_input.getFormat());
+        Timeline ovl = Binarize.apply(overlap_prob, 0);
+        ovl.setFrames(frames);
+        return ovl;
     }
 
     /**
@@ -373,12 +372,20 @@ public class OverlappingSpeech
                     this.separator_fs, input_format.isBigEndian());
 
             // Create AudioInputStreams
-            separated_audio[0] = AudioPreprocessor.convertToInputStream(speaker1, max_1, output_format);
-            separated_audio[1] = AudioPreprocessor.convertToInputStream(speaker2, max_2, output_format);
+            separated_audio[0] = AudioPreprocessor.convertToInputStream(speaker1, output_format);
+            separated_audio[1] = AudioPreprocessor.convertToInputStream(speaker2, output_format);
+
+            // Grab length of each
+            int length0 = (int) separated_audio[0].getFrameLength();
+            int length1 = (int) separated_audio[1].getFrameLength();
 
             // Convert streams to 16k (Might have to do this depending on speaker embedding model
             separated_audio[0] = AudioPreprocessor.resampleAudio(separated_audio[0], this.ovl_det_fs);
             separated_audio[1] = AudioPreprocessor.resampleAudio(separated_audio[1], this.ovl_det_fs);
+
+            // Fix broken streams
+            separated_audio[0] = AudioPreprocessor.fixBrokenStream(separated_audio[0], length0 * 2);
+            separated_audio[1] = AudioPreprocessor.fixBrokenStream(separated_audio[1], length1 * 2);
 
             // Add the separated streams to the list
             separated_streams.add(separated_audio);
@@ -387,7 +394,7 @@ public class OverlappingSpeech
         return separated_streams;
     }
 
-    private ArrayList<AudioInputStream> getAudioFromTimeline(Timeline timeline, float[] entire_audio,
+    public ArrayList<AudioInputStream> getAudioFromTimeline(Timeline timeline, float[] entire_audio,
                                                   float fs, AudioFormat new_format)
     {
         // Determine how many segments of overlapping speech exist in the audio
@@ -412,9 +419,7 @@ public class OverlappingSpeech
             float [] current_segment = Arrays.copyOfRange(entire_audio, start, start + n_frames[i]);
 
             // Add segment to the list
-            overlapping_segments.add(AudioPreprocessor.convertToInputStream(current_segment,
-                                                                        MatrixOperations.getMaxElement(current_segment),
-                                                                        new_format));
+            overlapping_segments.add(AudioPreprocessor.convertToInputStream(current_segment, new_format));
         }
 
         // Return the new AudioInputStreams
@@ -422,6 +427,14 @@ public class OverlappingSpeech
 
     }
 
-
+    /**
+     * Creates a timeline out of the gaps between segments of the input timeline
+     * @param timeline: Timeline that will be inverted
+     * @return: Timeline containing segments in between the given timeline's segments
+     */
+    public Timeline invertTimeline(Timeline timeline)
+    {
+        return timeline.gaps();
+    }
 
 }

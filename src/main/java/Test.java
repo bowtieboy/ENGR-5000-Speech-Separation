@@ -2,10 +2,7 @@ import ai.djl.Device;
 import ai.djl.MalformedModelException;
 import ai.djl.translate.TranslateException;
 
-import javax.sound.sampled.AudioFileFormat;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.UnsupportedAudioFileException;
+import javax.sound.sampled.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -36,23 +33,37 @@ public class Test {
         device = Device.cpu();
 
         // Load the models
-        VAD vad_model = new VAD(".\\src\\main\\resources", device);
-        OverlappingSpeech ovl_models = new OverlappingSpeech(".\\src\\main\\resources", device);
+        String model_path = ".\\src\\main\\resources";
+        VAD vad_model = new VAD(model_path, device);
+        SpeakerEmbedder emb_model = new SpeakerEmbedder(model_path, device);
+        OverlappingSpeech ovl_models = new OverlappingSpeech(model_path, device);
 
         // Load the audio data
         AudioInputStream audio = AudioSystem.getAudioInputStream(input_file);
+        AudioFormat original_format = audio.getFormat();
+        float fs = 16000f;
 
         // Apply pre-processing
         AudioInputStream speech_only = AudioPreprocessor.preprocessAudio(audio, vad_model);
 
         // Locate the mixed speech
-        ArrayList<AudioInputStream> mixed_speakers = ovl_models.detectOverlappingSpeech(speech_only);
-        // Create a copy of the streams to write to a file for debugging. This step will not be needed in the final
-        // build
-        ArrayList<ArrayList<AudioInputStream>> copy = AudioPreprocessor.copyStreams(mixed_speakers);
+        Timeline ovl_timeline = ovl_models.detectOverlappingSpeech(speech_only);
+        AudioFormat standard_format = new AudioFormat(original_format.getEncoding(), fs,
+                original_format.getSampleSizeInBits(), 1, original_format.getFrameSize(),
+                fs, original_format.isBigEndian());
+        ArrayList<AudioInputStream> mixed_speakers = ovl_models.getAudioFromTimeline(ovl_timeline,
+                                                                ovl_timeline.getFrames(), fs, standard_format);
+
+        // Separate the non-mixed speech
+        Timeline non_mixed = ovl_models.invertTimeline(ovl_timeline);
+        ArrayList<AudioInputStream> non_mixed_speakers = ovl_models.getAudioFromTimeline(non_mixed,
+                ovl_timeline.getFrames(), fs, standard_format);
+
+        // Grab embeddings of non_mixed speech
+        ArrayList<Float[][]> embeddings = emb_model.calculateBatchEmbeddings(non_mixed_speakers);
 
         // Separated the mixed speech
-        ArrayList<AudioInputStream[]> separated_speakers = ovl_models.separateOverlappingSpeech(copy.get(0));
+        ArrayList<AudioInputStream[]> separated_speakers = ovl_models.separateOverlappingSpeech(mixed_speakers);
 
         // Record this as the end of the execution time, since files wont be written in the final build
         Instant finish = Instant.now();
@@ -68,6 +79,7 @@ public class Test {
         AudioSystem.write(separated_speakers.get(0)[1], AudioFileFormat.Type.WAVE, output_file1);
         String output_file_path2 = ".\\mixed.wav";
         File output_file2 = new File(output_file_path2);
-        AudioSystem.write(copy.get(1).get(0), AudioFileFormat.Type.WAVE, output_file2);
+        mixed_speakers.get(0).reset(); // Reset the byte stream
+        AudioSystem.write(mixed_speakers.get(0), AudioFileFormat.Type.WAVE, output_file2);
     }
 }

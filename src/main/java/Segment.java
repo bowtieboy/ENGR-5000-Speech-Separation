@@ -1,6 +1,6 @@
 public class Segment
 {
-    private float SEGMENT_PRECISION = (float) Math.pow(10, -6);
+    public static final float SEGMENT_PRECISION = (float) Math.pow(10, -6);
     private float start;
     private float end;
 

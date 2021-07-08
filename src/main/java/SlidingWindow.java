@@ -114,6 +114,8 @@ public class SlidingWindow
         else if (mode.equals("center"))
         {
             indices[0] = this.closestFrame(focus.getStart());
+            // Edge case where indices[0] is negative
+            if (indices[0] < 0) indices[0] = 0;
             // If not fixed
             if (fixed == -1)
             {

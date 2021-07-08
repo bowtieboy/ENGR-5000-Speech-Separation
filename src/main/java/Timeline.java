@@ -6,6 +6,7 @@ public class Timeline
 
     ArrayList<Segment> set;
     float[] timeline_boundaries;
+    private float[] frames;
 
     public Timeline(ArrayList<Segment> segments)
     {
@@ -20,6 +21,15 @@ public class Timeline
         // Check if segment bounaries need to be modified
         if (segment.getStart() < timeline_boundaries[0]) timeline_boundaries[0] = segment.getStart();
         if (segment.getEnd() > timeline_boundaries[1]) timeline_boundaries[1] = segment.getEnd();
+    }
+
+    public void setFrames(float[] frames)
+    {
+        this.frames = frames;
+    }
+    public float[] getFrames()
+    {
+        return this.frames;
     }
 
     /**

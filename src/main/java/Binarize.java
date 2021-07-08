@@ -3,8 +3,8 @@ import java.util.ArrayList;
 
 public class Binarize
 {
-    private static float onset = 0.5f;
-    private static float offset = 0.5f;
+    private static float onset = 0.4f;
+    private static float offset = 0.4f;
     private String scale = "absolute";
     private boolean log_scale = false;
     private static float pad_onset = 0.0f;

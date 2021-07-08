@@ -13,6 +13,7 @@ import java.util.List;
 
 public class AudioPreprocessor
 {
+    private static float standard_fs = 16000f;
     /**
      * @param audio_input: AudioInputStream that will be downsampled
      * @param new_fs: The desired sample rate (frames/sec)
@@ -28,7 +29,8 @@ public class AudioPreprocessor
 
         if (AudioSystem.isConversionSupported(desired_format, current_format))
         {
-            return AudioSystem.getAudioInputStream(desired_format, audio_input);
+            AudioInputStream stream = AudioSystem.getAudioInputStream(desired_format, audio_input);
+            return stream;
         }
 
         else throw new IllegalStateException("Conversion not supported!");
@@ -157,15 +159,15 @@ public class AudioPreprocessor
 
     /**
      * @param audio_input: float array that contains the audio information that will be encoded
-     * @param max_val: The maximum value of the float array. Used to maximize the volume
      * @param desired_format: Desired audio format of the input stream. Encoding MUST BE PCM_Signed 16bit
      * @return: An AudioInputStream object
      */
-    public static AudioInputStream convertToInputStream(float[] audio_input, float max_val, AudioFormat desired_format)
+    public static AudioInputStream convertToInputStream(float[] audio_input, AudioFormat desired_format)
     {
         // Convert the float arrays to short arrays while keeping the distance between the points the same.
         // This is used for the PCM encoding later
         short[] pcm = new short[audio_input.length];
+        float max_val = MatrixOperations.getMaxElement(audio_input);
         for (int i = 0; i < audio_input.length; i++)
         {
             pcm[i] = (short) (audio_input[i] * (Short.MAX_VALUE / max_val));
@@ -215,10 +217,8 @@ public class AudioPreprocessor
             ArrayList<AudioInputStream> stream_copies = new ArrayList<>();
             float[] float_copy = convertToFloats(audioInputStream, length,
                     audioInputStream.getFormat().getSampleRate(), false);
-            stream_copies.add(convertToInputStream(float_copy, MatrixOperations.getMaxElement(float_copy),
-                    audioInputStream.getFormat()));
-            stream_copies.add(convertToInputStream(float_copy, MatrixOperations.getMaxElement(float_copy),
-                    audioInputStream.getFormat()));
+            stream_copies.add(convertToInputStream(float_copy, audioInputStream.getFormat()));
+            stream_copies.add(convertToInputStream(float_copy, audioInputStream.getFormat()));
             copies.add(stream_copies);
         }
 
@@ -262,8 +262,9 @@ public class AudioPreprocessor
     {
         // Step 0: Record length in case of AudioInputStream bug
         int length = (int) audio.getFrameLength();
+
         // Step 1: Resample audio to 16kHz.
-        audio = resampleAudio(audio, 16000f);
+        audio = resampleAudio(audio, standard_fs);
 
         // Step 2: Filter audio
         AudioFormat original_format = audio.getFormat();
@@ -271,16 +272,22 @@ public class AudioPreprocessor
                                                                     original_format.getSampleRate(), false));
 
         // Step 3: Create AudioInputStream out of the filtered audio
-        AudioFormat standard_format = new AudioFormat(original_format.getEncoding(), 16000,
+        AudioFormat standard_format = new AudioFormat(original_format.getEncoding(), standard_fs,
                 original_format.getSampleSizeInBits(), 1, original_format.getFrameSize(),
-                160000, original_format.isBigEndian());
-        AudioInputStream filtered_audio = convertToInputStream(filtered_frames,
-                                                    MatrixOperations.getMaxElement(filtered_frames), standard_format);
+                standard_fs, original_format.isBigEndian());
+        AudioInputStream filtered_audio = convertToInputStream(filtered_frames, standard_format);
 
         // Apply VAD model to the filtered audio
         AudioInputStream speech_only = model.separateSpeech(filtered_audio, standard_format);
 
         return speech_only;
+    }
+
+    public static AudioInputStream fixBrokenStream(AudioInputStream broken_stream, int length) throws IOException
+    {
+        AudioFormat format = broken_stream.getFormat();
+        float[] frames = convertToFloats(broken_stream, length, format.getSampleRate(), false);
+        return convertToInputStream(frames, format);
     }
 
 }
