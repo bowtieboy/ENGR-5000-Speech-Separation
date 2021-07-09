@@ -109,7 +109,7 @@
       <module filepath="$PROJECT_DIR$/SpeechSeparation.iml" />
     </modules>
   </component>
-  <component name="ProjectRootManager" version="2" languageLevel="JDK_16" default="true" project-jdk-name="16" project-jdk-type="JavaSDK" />
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_16" default="true" project-jdk-name="openjdk-16" project-jdk-type="JavaSDK" />
   <component name="RemoteRepositoriesConfiguration">
     <remote-repository>
       <option name="id" value="central" />

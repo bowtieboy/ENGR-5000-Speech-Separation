@@ -59,6 +59,13 @@ public class MatrixOperations
         return avg / vec.length;
     }
 
+    /**
+     * Sums entries of the vector from the start [start_idx, end_idx)
+     * @param vec: Vector that will contains entries that will be added
+     * @param start_idx: The start index for the summation (inclusive)
+     * @param end_idx: The end index for the summation (not inclusive)
+     * @return: The sum of all entries of the vector according to the indices.
+     */
     public static float sumToIndex(float[] vec, int start_idx, int end_idx)
     {
         float sum = 0f;
