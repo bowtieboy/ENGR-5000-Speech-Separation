@@ -76,7 +76,8 @@ public class SpeakerEmbedder
         this.emb_predictor = emb_predictor;
     }
 
-    public ArrayList<Float[][]> calculateBatchEmbeddings(ArrayList<AudioInputStream> audio_input_list) throws IOException, TranslateException
+    public ArrayList<Float[][]> calculateBatchEmbeddings(ArrayList<AudioInputStream> audio_input_list) throws
+                                                                                        IOException, TranslateException
     {
         ArrayList<Float[][]> embeddings_list = new ArrayList<>();
 

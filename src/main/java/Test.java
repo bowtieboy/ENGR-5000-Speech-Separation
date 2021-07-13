@@ -14,13 +14,16 @@ import java.util.ArrayList;
 
 public class Test {
 
-    public static void main (String[] args) throws MalformedModelException, IOException, UnsupportedAudioFileException, TranslateException {
+    public static void main (String[] args) throws
+                                MalformedModelException, IOException, UnsupportedAudioFileException, TranslateException
+    {
 
-        // Used to record execution time
-        Instant start = Instant.now();
-
+        // Get the needed files
         String input_file_path = ".\\vad_det_sep.wav";
         File input_file = new File(input_file_path);
+
+        String input_speaker_path = ".\\matt.wav";
+        File input_speaker = new File(input_speaker_path);
 
         // If a gpu is available, use that. Otherwise use the cpu
         Device device;
@@ -40,11 +43,28 @@ public class Test {
 
         // Load the audio data
         AudioInputStream audio = AudioSystem.getAudioInputStream(input_file);
-        AudioFormat original_format = audio.getFormat();
-        float fs = 16000f;
+        AudioInputStream speaker = AudioSystem.getAudioInputStream(input_speaker);
 
         // Apply pre-processing
         AudioInputStream speech_only = AudioPreprocessor.preprocessAudio(audio, vad_model);
+        AudioInputStream speaker_only = AudioPreprocessor.preprocessAudio(speaker, vad_model);
+
+        // Test the overlapping speech separation
+        //testSeparationPath(audio, ovl_models);
+
+        // Test the speaker embedding model
+        testSpeakerEmbedding(speaker_only, speech_only, emb_model);
+
+    }
+
+    private static void testSeparationPath(AudioInputStream speech_only, OverlappingSpeech ovl_models) throws
+                                                                                        TranslateException, IOException
+    {
+        // Used to record execution time
+        Instant start = Instant.now();
+
+        AudioFormat original_format = speech_only.getFormat();
+        float fs = 16000f;
 
         // Locate the mixed speech
         Timeline ovl_timeline = ovl_models.detectOverlappingSpeech(speech_only);
@@ -52,15 +72,12 @@ public class Test {
                 original_format.getSampleSizeInBits(), 1, original_format.getFrameSize(),
                 fs, original_format.isBigEndian());
         ArrayList<AudioInputStream> mixed_speakers = ovl_models.getAudioFromTimeline(ovl_timeline,
-                                                                ovl_timeline.getFrames(), fs, standard_format);
+                ovl_timeline.getFrames(), fs, standard_format);
 
         // Separate the non-mixed speech
         Timeline non_mixed = ovl_models.invertTimeline(ovl_timeline);
         ArrayList<AudioInputStream> non_mixed_speakers = ovl_models.getAudioFromTimeline(non_mixed,
                 ovl_timeline.getFrames(), fs, standard_format);
-
-        // Grab embeddings of non_mixed speech
-        ArrayList<Float[][]> embeddings = emb_model.calculateBatchEmbeddings(non_mixed_speakers);
 
         // Separated the mixed speech
         ArrayList<AudioInputStream[]> separated_speakers = ovl_models.separateOverlappingSpeech(mixed_speakers);
@@ -68,7 +85,7 @@ public class Test {
         // Record this as the end of the execution time, since files wont be written in the final build
         Instant finish = Instant.now();
         long time_elapsed = Duration.between(start, finish).toMillis();
-        System.out.printf("Time elapsed: %f", (float) time_elapsed / 1000f);
+        System.out.printf("Time elapsed during ovl model path: %f", (float) time_elapsed / 1000f);
 
         // Save the output files
         String output_file_path0 = ".\\sep0.wav";
@@ -81,5 +98,26 @@ public class Test {
         File output_file2 = new File(output_file_path2);
         mixed_speakers.get(0).reset(); // Reset the byte stream
         AudioSystem.write(mixed_speakers.get(0), AudioFileFormat.Type.WAVE, output_file2);
+    }
+
+    private static void testSpeakerEmbedding(AudioInputStream speaker_audio, AudioInputStream audio, SpeakerEmbedder embedder) throws
+                                                                                        TranslateException, IOException
+    {
+        // Turn the audio into a series of embeddings
+        ArrayList<AudioInputStream> audio_list = new ArrayList<>();
+        audio_list.add(speaker_audio);
+        ArrayList embeddings = embedder.calculateBatchEmbeddings(audio_list);
+
+        // Create speaker out of the embeddings
+        Speaker new_speaker = new Speaker("Matt", embeddings);
+
+        // Create list out of the single speaker
+        ArrayList<Speaker> speakers = new ArrayList<>();
+        speakers.add(new_speaker);
+
+        // Create SpeakerIdentification class
+        SpeakerIdentification identifier = new SpeakerIdentification(speakers);
+
+        //
     }
 }

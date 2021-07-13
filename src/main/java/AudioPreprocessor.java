@@ -14,6 +14,7 @@ import java.util.List;
 public class AudioPreprocessor
 {
     private static float standard_fs = 16000f;
+
     /**
      * @param audio_input: AudioInputStream that will be downsampled
      * @param new_fs: The desired sample rate (frames/sec)
@@ -257,6 +258,15 @@ public class AudioPreprocessor
         return floats;
     }
 
+    /**
+     * Performs necessary audio preprocessing functions to the input stream, such as filtering, silence separation, and
+     * resampling.
+     * @param audio: The original audio that will be processed
+     * @param model: The VAD model that will isolate out the segments of silence
+     * @return: The preprocessed audio stream
+     * @throws IOException
+     * @throws TranslateException
+     */
     public static AudioInputStream preprocessAudio(AudioInputStream audio, VAD model) throws IOException,
                                                                                              TranslateException
     {
@@ -280,14 +290,59 @@ public class AudioPreprocessor
         // Apply VAD model to the filtered audio
         AudioInputStream speech_only = model.separateSpeech(filtered_audio, standard_format);
 
+        // If there is no speech in the audio clip, return null
+        if (speech_only.available() < 1) return null;
+
         return speech_only;
     }
 
+    /**
+     * Creates a new AudioInputStream that is located in a new location in memory. This will help to fix the issue where
+     * the frame length is shown to be -1
+     * @param broken_stream: Stream that will be copied
+     * @param length: The length of the stream (in bytes)
+     * @return: A new AudioInputStream that has a defined frame length
+     * @throws IOException
+     */
     public static AudioInputStream fixBrokenStream(AudioInputStream broken_stream, int length) throws IOException
     {
         AudioFormat format = broken_stream.getFormat();
         float[] frames = convertToFloats(broken_stream, length, format.getSampleRate(), false);
         return convertToInputStream(frames, format);
+    }
+
+    /**
+     * Converts a Float array to a Double array
+     * @param arr: array of Floats
+     * @return: array of Doubles
+     */
+    public static double[] convertFloatsToDoubles(Float[] arr)
+    {
+        double[] d_arr = new double[arr.length];
+        for (int i = 0; i < arr.length; i++)
+        {
+            d_arr[i] = arr[i];
+        }
+        return d_arr;
+    }
+
+    /**
+     * Converts the Double object matrix to a double primitive matrix
+     * @param mat: Matrix of Double objects
+     * @return: Matrix of double primitives
+     */
+    public static double[][] convertDoublesToDoubles(Double[][] mat)
+    {
+        double[][] prim_mat = new double[mat.length][mat[0].length];
+        for (int i = 0; i < mat.length; i++)
+        {
+            for (int j = 0; j < mat[0].length; j++)
+            {
+                prim_mat[i][j] = mat[i][j];
+            }
+        }
+
+        return prim_mat;
     }
 
 }

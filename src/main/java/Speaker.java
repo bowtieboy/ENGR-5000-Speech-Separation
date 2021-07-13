@@ -1,24 +1,14 @@
-import weka.core.Attribute;
-import weka.core.DenseInstance;
-import weka.core.Instance;
-
 import java.util.ArrayList;
 
 public class Speaker
 {
     private String name;
-    private ArrayList<Instance> embeddings;
-    private ArrayList<Attribute> attributes;
+    private Float[][] embeddings;
 
-    public Speaker(String name, Float[][] embeddings)
+    public Speaker(String name, ArrayList<Float[][]> embeddings)
     {
         this.name = name;
-
-        this.attributes = new ArrayList<>();
-        this.attributes.add(new Attribute("name"));
-        this.attributes.add(new Attribute("embeddings"));
-
-        this.embeddings = convertToInstances(embeddings);
+        this.embeddings = expandEntries(embeddings);
     }
 
     // Getters
@@ -26,17 +16,36 @@ public class Speaker
     {
         return name;
     }
-    public ArrayList<Instance> getEmbeddings()
+    public Float[][] getEmbeddings()
     {
         return embeddings;
     }
 
-    private ArrayList<Instance> convertToInstances(Float[][] mat)
+    private Float[][] expandEntries(ArrayList<Float[][]> emb)
     {
-        // Create the list of instances that will be returned
-        ArrayList<Instance> instance_list = new ArrayList<>();
+        // Determine number of rows
+        int rows = 0;
+        for (int i = 0; i < emb.size(); i++)
+        {
+            rows += emb.get(i).length;
+        }
 
+        // Define the new array and assign the values
+        int previous_size = 0;
+        Float[][] all_emb = new Float[rows][512];
+        for (Float[][] mat: emb)
+        {
+            for (int i = 0; i < mat.length; i++)
+            {
+                for (int j = 0; j < mat[i].length; j++)
+                {
+                    all_emb[i + previous_size][j] = mat[i][j];
+                }
+            }
+            previous_size += mat.length;
+        }
 
-        return instance_list;
+        return all_emb;
     }
+
 }

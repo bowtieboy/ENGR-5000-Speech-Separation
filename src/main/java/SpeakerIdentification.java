@@ -1,40 +1,93 @@
-import weka.classifiers.lazy.IBk;
-import weka.core.Instance;
-import weka.core.Instances;
-
 import java.util.ArrayList;
 
+// TODO: Finish implementing the classification of speakers. Add way to classify a batch of embeddings. Create public function that will return list of strings for who spoke during each embedding
 public class SpeakerIdentification
 {
-    private IBk knn;
     private ArrayList<Speaker> speakers;
-    private Instances instances;
+    private ArrayList<String> names;
+    private int clusters;
 
     public SpeakerIdentification(ArrayList<Speaker> initial_speakers)
     {
-        // Store initial list of speakers
         this.speakers = initial_speakers;
+        this.clusters = speakers.size();
 
-        // Add initial list of speakers to the instances object
+        // Create list of names
+        ArrayList<String> names = new ArrayList<>();
+        for (Speaker s: speakers)
+        {
+            names.add(s.getName());
+        }
 
-        // Initialize knn to have as many clusters as there are speakers
-        this.knn = new IBk(initial_speakers.size());
+        this.names = names;
+
+    }
+
+    // Getters
+    public ArrayList<Speaker> getSpeakers()
+    {
+        return this.speakers;
+    }
+    public int getClusters()
+    {
+        return this.clusters;
     }
 
     /**
-     * Adds a new speaker to the knn classifier list
-     * @param new_speaker: New speaker being added to the classifier
-     * @return: The number of clusters in the algorithm
+     * Adds a new speaker to the classifier
+     * @param new_speaker: The new speaker that will be added
+     * @return: How many speakers are now in the system. Will return -1 if the speaker is already in the system
      */
-    public int addSpeaker(Speaker new_speaker)
+    public int addNewSpeaker(Speaker new_speaker)
     {
-        this.speakers.add(new_speaker);
-        this.knn.setKNN(this.speakers.size());
-        // Add the instances to the list
-        for (Instance i: new_speaker.getEmbeddings())
+        // Check to make sure the speaker isnt already in the system
+        for (String speaker: this.names)
         {
-            this.instances.add(i);
+            if (speaker.equalsIgnoreCase(new_speaker.getName())) return -1;
         }
-        return this.knn.getKNN();
+
+        // If the speaker is not in the list
+        this.speakers.add(new_speaker);
+        this.clusters++;
+        return this.clusters;
+    }
+
+    // TODO: Implement this function
+    public ArrayList<String> identifySpeakers(Float[][] embeddings)
+    {
+        ArrayList<String> speakers = new ArrayList<>();
+
+        return speakers;
+    }
+
+    /**
+     * Calculates the likelihood that the given embedding belongs to one of the known speakers
+     * @param embedding: Unknown speaker embedding
+     * @return: Array of speaker probabilities
+     */
+    private float[] classify(Float[] embedding)
+    {
+        float[] probabilities = new float[this.clusters];
+
+        // Calculate the distances between this embedding and each speakers known embeddings
+        ArrayList<float[]> distances = new ArrayList<>();
+        for (Speaker s: this.speakers)
+        {
+            distances.add(euclideanDistance(embedding, s.getEmbeddings()));
+        }
+
+        return probabilities;
+    }
+
+    /**
+     * Calculates the distance between the first vector and every row of the second vector
+     * @param a: Vector that will be subtracted from
+     * @param b: Matrix that contains each row that will subtract from a
+     * @return: The distance between all of the vectors
+     */
+    private float[] euclideanDistance(Float[] a, Float[][] b)
+    {
+        return MatrixOperations.raiseVectorToPower(MatrixOperations.sumColumns(MatrixOperations.raiseMatrixToPower(
+                MatrixOperations.subMatrixFromVector(a, b), 2f)), 0.5f);
     }
 }

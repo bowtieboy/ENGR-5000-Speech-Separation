@@ -63,7 +63,8 @@ public class OverlappingSpeech
         dec_model.load(model_path);
 
         // Define ovl model path
-        Translator<List<Float[]>, List<Float[][]>> ovl_translator = new Translator<List<Float[]>, List<Float[][]>>() {
+        Translator<List<Float[]>, List<Float[][]>> ovl_translator = new Translator<List<Float[]>, List<Float[][]>>()
+        {
             @Override
             public Batchifier getBatchifier() {
                 return new DetectionBatchifier();
@@ -311,7 +312,9 @@ public class OverlappingSpeech
      * @throws IOException: Thrown if file cant be read
      * @throws TranslateException: Thrown if issue with PyTorch model input form
      */
-    public ArrayList<AudioInputStream[]> separateOverlappingSpeech(ArrayList<AudioInputStream> audio_input_list) throws IOException, TranslateException {
+    public ArrayList<AudioInputStream[]> separateOverlappingSpeech(ArrayList<AudioInputStream> audio_input_list) throws
+            IOException, TranslateException
+    {
 
         // Define final return list
         ArrayList<AudioInputStream[]> separated_streams = new ArrayList<>();
@@ -383,9 +386,9 @@ public class OverlappingSpeech
             separated_audio[0] = AudioPreprocessor.resampleAudio(separated_audio[0], this.ovl_det_fs);
             separated_audio[1] = AudioPreprocessor.resampleAudio(separated_audio[1], this.ovl_det_fs);
 
-            // Fix broken streams
-            separated_audio[0] = AudioPreprocessor.fixBrokenStream(separated_audio[0], length0 * 2);
-            separated_audio[1] = AudioPreprocessor.fixBrokenStream(separated_audio[1], length1 * 2);
+            // Reset the streams so the byte buffer points back to the first byte
+            separated_audio[0].reset();
+            separated_audio[0].reset();
 
             // Add the separated streams to the list
             separated_streams.add(separated_audio);

@@ -9,7 +9,6 @@
     <option name="CODE_STYLE_SCHEME" value="" />
   </component>
   <component name="CompilerConfiguration">
-    <option name="DEFAULT_COMPILER" value="ajc" />
     <option name="BUILD_PROCESS_HEAP_SIZE" value="8000" />
     <wildcardResourcePatterns>
       <entry name="!?*.java" />
@@ -106,7 +105,7 @@
   </component>
   <component name="ProjectModuleManager">
     <modules>
-      <module filepath="$PROJECT_DIR$/SpeechSeparation.iml" />
+      <module fileurl="file://$PROJECT_DIR$/SpeechSeparation.iml" filepath="$PROJECT_DIR$/SpeechSeparation.iml" />
     </modules>
   </component>
   <component name="ProjectRootManager" version="2" languageLevel="JDK_16" default="true" project-jdk-name="openjdk-16" project-jdk-type="JavaSDK" />

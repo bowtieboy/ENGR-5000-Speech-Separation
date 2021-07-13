@@ -35,6 +35,11 @@ public class MatrixOperations
         return return_array;
     }
 
+    /**
+     * Grabs the maximum element of the vector
+     * @param vec: Vector that will be operated on
+     * @return: Maximum value of vec
+     */
     public static float getMaxElement(float[] vec)
     {
         float max = 0f;
@@ -47,6 +52,11 @@ public class MatrixOperations
         return max;
     }
 
+    /**
+     * Calculates the average value of the entire vector
+     * @param vec: Vector that will be operated on
+     * @return: The average value of vec
+     */
     public static float getAverageElement(float[] vec)
     {
         float avg = 0f;
@@ -76,4 +86,103 @@ public class MatrixOperations
 
         return sum;
     }
+
+    /**
+     * Calculates the element wise operation of a - b
+     * @param a : Vector that will be subtracted from by b
+     * @param b : Matrix that will subtract from a
+     * @return: The matrix a-b
+     */
+    public static float[][] subMatrixFromVector(Float[] a, Float[][] b)
+    {
+        // Make sure the two vectors are the same length
+        if (a.length != b[0].length) return null;
+
+        float[][] result = new float[b.length][a.length];
+        for (int i = 0; i < b.length; i++)
+        {
+            Float[] row = b[i];
+            for (int j = 0; j < row.length; j++)
+            {
+                result[i][j] = a[j] - b[i][j];
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Sums all elements of the vector
+     * @param a: Vector that will have its elements summed
+     * @return: The sum of all elements of a
+     */
+    public static float sumVector(float[] a)
+    {
+        float result = 0;
+        for (int i = 0; i < a.length; i++)
+        {
+            result += a[i];
+        }
+        return result;
+    }
+
+    /**
+     * Raises all elements of the matrix to the given power
+     * @param a: Matrix that will be operated on
+     * @param b: Value that each element will be raised to
+     * @return: All elements of a raised to the bth power
+     */
+    public static float[][] raiseMatrixToPower(float[][] a, float b)
+    {
+        float[][] result = new float[a.length][a[0].length];
+        for (int i = 0; i < a.length; i++)
+        {
+            for (int j = 0; j < a[0].length; j++)
+            {
+                result[i][j] = (float) Math.pow(a[i][j], b);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Raises all elements of a to the power b
+     * @param a: Vector that will be operated on
+     * @param b: The power that each element will be raised to
+     * @return: Vector that contains all elements of a raised to b
+     */
+    public static float[] raiseVectorToPower(float[] a, float b)
+    {
+        float[] result = new float[a.length];
+        for (int i = 0; i < a.length; i++)
+        {
+            result[i] = (float) Math.pow(a[i], b);
+        }
+
+        return result;
+    }
+
+    /**
+     * Sums all the columns of the matrix.
+     * @param a: Matrix that will be operated on
+     * @return: The row wise summation of the matrix
+     */
+    public static float[] sumColumns(float[][] a)
+    {
+        float[] result = new float[a.length];
+        float temp_result;
+        for (int i = 0; i < a.length; i++)
+        {
+            temp_result = 0f;
+            for (int j = 0; j < a[0].length; j++)
+            {
+                temp_result += a[i][j];
+            }
+            result[i] = temp_result;
+        }
+
+        return result;
+    }
+
 }
