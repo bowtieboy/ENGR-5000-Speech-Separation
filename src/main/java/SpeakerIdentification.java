@@ -1,6 +1,5 @@
 import java.util.ArrayList;
 
-// TODO: Finish implementing the classification of speakers. Add way to classify a batch of embeddings. Create public function that will return list of strings for who spoke during each embedding
 public class SpeakerIdentification
 {
     private ArrayList<Speaker> speakers;

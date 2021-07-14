@@ -19,6 +19,10 @@ public class Segment
     {
         return this.end;
     }
+    public float getSegmentPrecision()
+    {
+        return SEGMENT_PRECISION;
+    }
 
     /**
      * A segment is empty if the end is smaller than the start, or the duration is smaller than 1us
@@ -67,7 +71,7 @@ public class Segment
      */
     public boolean contains(Segment other)
     {
-        return (this.start <= other.start) && (this.end >= other.end);
+        return (this.start >= other.start) && (this.end <= other.end);
     }
 
     /**

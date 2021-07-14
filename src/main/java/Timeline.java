@@ -19,8 +19,7 @@ public class Timeline
         this.set.add(segment);
 
         // Check if segment bounaries need to be modified
-        if (segment.getStart() < timeline_boundaries[0]) timeline_boundaries[0] = segment.getStart();
-        if (segment.getEnd() > timeline_boundaries[1]) timeline_boundaries[1] = segment.getEnd();
+        this.timeline_boundaries = findBoundaries();
     }
 
     public void setFrames(float[] frames)
@@ -52,6 +51,12 @@ public class Timeline
         Segment support = this.extent();
 
         float end = support.getEnd();
+
+        // If the start of support isn't 0, create a segment that goes from 0 to start
+        if (support.getStart() >= support.getSegmentPrecision())
+        {
+            gap.add(new Segment(0, support.getStart()));
+        }
 
         for (Segment segment: crop(support).support_iter(0))
         {
@@ -192,8 +197,16 @@ public class Timeline
         Float end = Float.NEGATIVE_INFINITY;
         for (Segment segment: this.set)
         {
-            if (segment.getStart() < start) boundaries[0] = segment.getStart();
-            if (segment.getEnd() > end) boundaries[1] = segment.getEnd();
+            if (segment.getStart() < start)
+            {
+                boundaries[0] = segment.getStart();
+                start = boundaries[0];
+            }
+            if (segment.getEnd() > end)
+            {
+                boundaries[1] = segment.getEnd();
+                end = boundaries[1];
+            }
         }
 
         return boundaries;

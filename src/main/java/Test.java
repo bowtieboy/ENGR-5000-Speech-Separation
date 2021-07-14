@@ -76,7 +76,6 @@ public class Test {
                 ovl_timeline.getFrames(), fs, standard_format);
 
         // Separate the non-mixed speech
-        // FIXME: Returning an empty set, when it should have values
         Timeline non_mixed = ovl_models.invertTimeline(ovl_timeline);
         ArrayList<AudioInputStream> non_mixed_speakers = ovl_models.getAudioFromTimeline(non_mixed,
                 ovl_timeline.getFrames(), fs, standard_format);
