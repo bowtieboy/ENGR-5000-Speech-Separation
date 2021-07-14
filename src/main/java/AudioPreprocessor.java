@@ -270,6 +270,8 @@ public class AudioPreprocessor
     public static AudioInputStream preprocessAudio(AudioInputStream audio, VAD model) throws IOException,
                                                                                              TranslateException
     {
+        // Log for debugging purposes
+        System.out.println("Pre-processing audio clip");
         // Step 0: Record length in case of AudioInputStream bug
         int length = (int) audio.getFrameLength();
 

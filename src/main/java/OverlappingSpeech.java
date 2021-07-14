@@ -215,7 +215,10 @@ public class OverlappingSpeech
 
     }
 
-    public Timeline detectOverlappingSpeech(AudioInputStream audio_input) throws IOException, TranslateException {
+    public Timeline detectOverlappingSpeech(AudioInputStream audio_input) throws IOException, TranslateException
+    {
+        // Log for debugging purposes
+        System.out.println("Detecting overlapping speech");
         // Grab the format of the audio
         AudioFormat input_format = audio_input.getFormat();
         int frame_length = (int) audio_input.getFrameLength();
@@ -315,7 +318,8 @@ public class OverlappingSpeech
     public ArrayList<AudioInputStream[]> separateOverlappingSpeech(ArrayList<AudioInputStream> audio_input_list) throws
             IOException, TranslateException
     {
-
+        // Log for debugging purposes
+        System.out.println("Separating overlapping speech");
         // Define final return list
         ArrayList<AudioInputStream[]> separated_streams = new ArrayList<>();
 

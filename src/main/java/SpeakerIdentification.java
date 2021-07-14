@@ -52,10 +52,33 @@ public class SpeakerIdentification
         return this.clusters;
     }
 
-    // TODO: Implement this function
-    public ArrayList<String> identifySpeakers(Float[][] embeddings)
+    /**
+     * Determines the most likely speaker for each embedding
+     * @param embeddings: Matrix of floats, where each row is an embedding vector
+     * @param threshold: How confident the kNN needs to be to assign a speaker
+     * @return: The most likely speaker for each embedding
+     */
+    public ArrayList<String> identifySpeakers(Float[][] embeddings, float threshold)
     {
         ArrayList<String> speakers = new ArrayList<>();
+
+        // Classify each embedding vector in the matrix
+        float[] probabilities = new float[this.clusters];
+        float most_likely_idx;
+        for (Float[] emb: embeddings)
+        {
+
+            // Grab the probabilities from the classifier
+            probabilities = classify(emb);
+
+            // Grab the minimum speakers idx
+            most_likely_idx = MatrixOperations.getIndexForElement(probabilities,
+                                                                        MatrixOperations.getMinElement(probabilities));
+
+            // Add the name of the speaker to the list
+            speakers.add(this.speakers.get((int) most_likely_idx).getName());
+
+        }
 
         return speakers;
     }
@@ -67,8 +90,6 @@ public class SpeakerIdentification
      */
     private float[] classify(Float[] embedding)
     {
-        float[] probabilities = new float[this.clusters];
-
         // Calculate the distances between this embedding and each speakers known embeddings
         ArrayList<float[]> distances = new ArrayList<>();
         for (Speaker s: this.speakers)
@@ -76,7 +97,39 @@ public class SpeakerIdentification
             distances.add(euclideanDistance(embedding, s.getEmbeddings()));
         }
 
-        return probabilities;
+        // Determine the minimum n distances for each row, where n is the number of known speakers
+        ArrayList<float[]> min_distances = new ArrayList<>();
+        float current_min = 0;
+        float current_idx = 0;
+        for (float[] row: distances)
+        {
+            float[] current_min_distances = new float[this.clusters];
+            for (int i = 0; i < this.clusters; i++)
+            {
+                // Grab the minimum value and the index for it
+                current_min = MatrixOperations.getMinElement(row);
+                current_idx = MatrixOperations.getIndexForElement(row, current_min);
+
+                // Store the values
+                current_min_distances[i] = current_min;
+
+                // Set the index to be infinity so it is no longer the minimum
+                row[(int) current_idx] = Float.POSITIVE_INFINITY;
+            }
+            // Store the current minimum distances
+            min_distances.add(current_min_distances);
+
+        }
+
+        // Determine the average lowest value for each of the speakers
+        float[] avg_min = new float[this.clusters];
+        for (int i = 0; i < avg_min.length; i++)
+        {
+            avg_min[i] = MatrixOperations.getAverageElement(min_distances.get(i));
+        }
+
+        // Return the average minimums
+        return avg_min;
     }
 
     /**

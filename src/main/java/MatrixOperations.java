@@ -185,4 +185,37 @@ public class MatrixOperations
         return result;
     }
 
+    /**
+     * Returns the minimum element of the array
+     * @param arr: Array that will be checked
+     * @return: The minimum value of row
+     */
+    public static float getMinElement(float[] arr)
+    {
+        float min = Float.POSITIVE_INFINITY;
+
+        for (int i = 0; i < arr.length; i++)
+        {
+            if (min > arr[i]) min = arr[i];
+        }
+
+        return min;
+    }
+
+    /**
+     * Returns the index in the array where the given value is located
+     * @param arr: Array that contains the known value
+     * @param known_value: Value in array that the index for is desired. MUST BE IN ARRAY
+     * @return: The index of known_value within arr
+     */
+    public static float getIndexForElement(float[] arr, float known_value)
+    {
+        for (int i = 0; i < arr.length; i++)
+        {
+            if (known_value == arr[i]) return i;
+        }
+
+        // If value is not in the array, throw an error
+        throw new IllegalStateException("Array did not contain the known value.");
+    }
 }
