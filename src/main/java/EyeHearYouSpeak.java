@@ -36,6 +36,7 @@ public class EyeHearYouSpeak
         this.ovl = new OverlappingSpeech(model_path, device);
     }
 
+    // TODO: Finish this function
     public ArrayList<String> annotateAudio(AudioInputStream audio) throws TranslateException, IOException
     {
         // Create variable that will contain the final speech array
@@ -50,21 +51,75 @@ public class EyeHearYouSpeak
         // Preprocess the audio stream
         AudioInputStream pre_processed = AudioPreprocessor.preprocessAudio(audio, this.vad);
 
+        // If no speech was detected in the audio, don't waste time processing the stream
+        if (pre_processed == null) return null;
+
         // Detect any overlapping speech within the audio
+        // TODO: Check case where no overlapping speech occurs in the clip
         Timeline overlapping_speech_tl = this.ovl.detectOverlappingSpeech(pre_processed);
         Timeline non_overlapping_speech_tl = this.ovl.invertTimeline(overlapping_speech_tl);
 
-        // Grab both the overlapping and non-overlapping segments of speech
-        ArrayList<AudioInputStream> mixed_speakers = this.ovl.getAudioFromTimeline(overlapping_speech_tl,
-                overlapping_speech_tl.getFrames(), fs, standard_format);
+        // Grab the AudioInputStreams that do not contain overlapping speech
         ArrayList<AudioInputStream> non_mixed_speakers = this.ovl.getAudioFromTimeline(non_overlapping_speech_tl,
                 non_overlapping_speech_tl.getFrames(), fs, standard_format);
 
         // TODO: Implement threading here to process both the mixed and non-mixed at the same time
 
-        // Separate out the overlapping speech
+        // If overlapping speech was detected
+        if (overlapping_speech_tl.set.size() > 0)
+        {
+            // Grab the AudioInputStreams that contain overlapping speech segments
+            ArrayList<AudioInputStream> mixed_speakers = this.ovl.getAudioFromTimeline(overlapping_speech_tl,
+                    overlapping_speech_tl.getFrames(), fs, standard_format);
+            // Separate out the overlapping speech
+            ArrayList<AudioInputStream[]> separated_speakers = this.ovl.separateOverlappingSpeech(mixed_speakers);
 
+            // Convert the ArrayList of AudioInputStream arrays into two separate ArrayLists
+            ArrayList<AudioInputStream> separated_speaker_0 = AudioPreprocessor.separateArrayList(separated_speakers, 0);
+            ArrayList<AudioInputStream> separated_speaker_1 = AudioPreprocessor.separateArrayList(separated_speakers, 1);
 
+            // Calculate embeddings for the mixed and non-mixed segments of speech
+            ArrayList<Float[][]> speaker_0_embeddings = this.emb.calculateBatchEmbeddings(separated_speaker_0);
+            ArrayList<Float[][]> speaker_1_embeddings = this.emb.calculateBatchEmbeddings(separated_speaker_1);
+
+            // Identify the speakers for each embedding
+            ArrayList<String> speaker_0_names = new ArrayList<>();
+            ArrayList<String> speaker_1_names = new ArrayList<>();
+            for (int i = 0; i < speaker_0_embeddings.size(); i++)
+            {
+                // Grab the speakers for each embedding
+                ArrayList<String> current_names_0 = this.iden.identifySpeakers(speaker_0_embeddings.get(i));
+                ArrayList<String> current_names_1 = this.iden.identifySpeakers(speaker_1_embeddings.get(i));
+
+                // Add the names for the embeddings to the non_mixed_names list
+                for (String name: current_names_0)
+                {
+                    speaker_0_names.add(name);
+                    speaker_1_names.add(name);
+                }
+            }
+        }
+
+        // Calculate embeddings for the non-overlapping speech
+        ArrayList<Float[][]> non_mixed_embeddings = this.emb.calculateBatchEmbeddings(non_mixed_speakers);
+
+        // Identify the speakers for each embedding
+        ArrayList<String> non_mixed_names = new ArrayList<>();
+        for (Float[][] emb: non_mixed_embeddings)
+        {
+            // Grab the speakers for each embedding
+            ArrayList<String> current_names = this.iden.identifySpeakers(emb);
+
+            // Add the names for the embeddings to the non_mixed_names list
+            non_mixed_names.addAll(current_names);
+        }
+
+        /*
+          At this point, the names of each speaker should be identified for both the overlapping speech segments (if
+          any existed within the AudioInputStream) and the non-overlapping speech. The next step is to get both the
+          STT values, as well as the times associated with each word. After this is done, combing the word timings, the
+          timeline segments, and the embedding windows should provide: who spoke, what was said, and when it was said.
+         */
 
         return captions;
     }

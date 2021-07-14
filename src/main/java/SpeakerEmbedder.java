@@ -71,11 +71,17 @@ public class SpeakerEmbedder
                 return new NDList(array);
             }
         };
-        Predictor<List<Float[]>, Float[][]> emb_predictor = emb_model.newPredictor(emb_translator);
 
-        this.emb_predictor = emb_predictor;
+        this.emb_predictor = emb_model.newPredictor(emb_translator);
     }
 
+    /**
+     * Creates a batch of embeddings for each AudioInputStream
+     * @param audio_input_list: List of AudioInputStreams that will have embeddings calculated for
+     * @return: List of embeddings for each AudioInputStream
+     * @throws IOException: No idea
+     * @throws TranslateException: No idea
+     */
     public ArrayList<Float[][]> calculateBatchEmbeddings(ArrayList<AudioInputStream> audio_input_list) throws
                                                                                         IOException, TranslateException
     {
@@ -110,12 +116,10 @@ public class SpeakerEmbedder
             if (support.getDuration() < sliding_window.getDuration())
             {
                 chunks.add(support);
-                fixed = support.getDuration();
             }
             else
             {
                 chunks = resolution.slideWindowOverSupport(support, true);
-                fixed = sliding_window.getDuration();
             }
 
             // Crop the batches

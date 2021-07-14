@@ -44,9 +44,9 @@ public class MatrixOperations
     {
         float max = 0f;
 
-        for (int i = 0; i < vec.length; i++)
+        for (float v : vec)
         {
-            if (max < Math.abs(vec[i])) max = Math.abs(vec[i]);
+            if (max < Math.abs(v)) max = Math.abs(v);
         }
 
         return max;
@@ -61,9 +61,9 @@ public class MatrixOperations
     {
         float avg = 0f;
 
-        for (int i = 0; i < vec.length; i++)
+        for (float v : vec)
         {
-            avg += vec[i];
+            avg += v;
         }
 
         return avg / vec.length;
@@ -96,7 +96,7 @@ public class MatrixOperations
     public static float[][] subMatrixFromVector(Float[] a, Float[][] b)
     {
         // Make sure the two vectors are the same length
-        if (a.length != b[0].length) return null;
+        if (a.length != b[0].length) throw new IllegalStateException("Misaligned dimensions!");
 
         float[][] result = new float[b.length][a.length];
         for (int i = 0; i < b.length; i++)
@@ -119,9 +119,9 @@ public class MatrixOperations
     public static float sumVector(float[] a)
     {
         float result = 0;
-        for (int i = 0; i < a.length; i++)
+        for (float v : a)
         {
-            result += a[i];
+            result += v;
         }
         return result;
     }
@@ -194,9 +194,9 @@ public class MatrixOperations
     {
         float min = Float.POSITIVE_INFINITY;
 
-        for (int i = 0; i < arr.length; i++)
+        for (float v : arr)
         {
-            if (min > arr[i]) min = arr[i];
+            if (min > v) min = v;
         }
 
         return min;

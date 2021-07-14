@@ -54,15 +54,14 @@ public class SpeakerIdentification
     /**
      * Determines the most likely speaker for each embedding
      * @param embeddings: Matrix of floats, where each row is an embedding vector
-     * @param threshold: How confident the kNN needs to be to assign a speaker
      * @return: The most likely speaker for each embedding
      */
-    public ArrayList<String> identifySpeakers(Float[][] embeddings, float threshold)
+    public ArrayList<String> identifySpeakers(Float[][] embeddings)
     {
         ArrayList<String> speakers = new ArrayList<>();
 
         // Classify each embedding vector in the matrix
-        float[] probabilities = new float[this.clusters];
+        float[] probabilities;
         float most_likely_idx;
         for (Float[] emb: embeddings)
         {
@@ -98,8 +97,8 @@ public class SpeakerIdentification
 
         // Determine the minimum n distances for each row, where n is the number of known speakers
         ArrayList<float[]> min_distances = new ArrayList<>();
-        float current_min = 0;
-        float current_idx = 0;
+        float current_min;
+        float current_idx;
         for (float[] row: distances)
         {
             float[] current_min_distances = new float[this.clusters];

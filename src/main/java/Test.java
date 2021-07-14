@@ -103,9 +103,8 @@ public class Test {
 //        AudioSystem.write(mixed_speakers.get(0), AudioFileFormat.Type.WAVE, output_file2);
 
         // Return a separated stream for testing
-        AudioInputStream fixed_stream = AudioPreprocessor.fixBrokenStream(separated_speakers.get(0)[0],
+        return AudioPreprocessor.fixBrokenStream(separated_speakers.get(0)[0],
                                                                         (int) mixed_speakers.get(0).getFrameLength());
-        return fixed_stream;
     }
 
     private static void testSpeakerEmbedding(AudioInputStream speaker_audio0, AudioInputStream speaker_audio1, AudioInputStream audio,
@@ -115,10 +114,10 @@ public class Test {
         // Turn the audio into a series of embeddings
         ArrayList<AudioInputStream> audio_list0 = new ArrayList<>();
         audio_list0.add(speaker_audio0);
-        ArrayList embeddings0 = embedder.calculateBatchEmbeddings(audio_list0);
+        ArrayList<Float[][]> embeddings0 = embedder.calculateBatchEmbeddings(audio_list0);
         ArrayList<AudioInputStream> audio_list1 = new ArrayList<>();
         audio_list1.add(speaker_audio1);
-        ArrayList embeddings1 = embedder.calculateBatchEmbeddings(audio_list1);
+        ArrayList<Float[][]> embeddings1 = embedder.calculateBatchEmbeddings(audio_list1);
 
         // Create speaker out of the embeddings
         Speaker new_speaker0 = new Speaker("Matt", embeddings0);
@@ -140,7 +139,7 @@ public class Test {
         ArrayList<Float[][]> test_embeddings = embedder.calculateBatchEmbeddings(test_list);
 
         // Check to make sure the classifier is working correctly
-        identifier.identifySpeakers(test_embeddings.get(0), 0.5f);
+        identifier.identifySpeakers(test_embeddings.get(0));
     }
 
     private static void saveAudio(AudioInputStream audio, String file_name) throws IOException

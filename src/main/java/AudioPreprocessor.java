@@ -30,8 +30,7 @@ public class AudioPreprocessor
 
         if (AudioSystem.isConversionSupported(desired_format, current_format))
         {
-            AudioInputStream stream = AudioSystem.getAudioInputStream(desired_format, audio_input);
-            return stream;
+            return AudioSystem.getAudioInputStream(desired_format, audio_input);
         }
 
         else throw new IllegalStateException("Conversion not supported!");
@@ -206,7 +205,7 @@ public class AudioPreprocessor
      * AudioInputStream data
      * @param input: List of AudioInputStreams that will be copied
      * @return: List that contains two of each of the original lists of audio streams
-     * @throws IOException
+     * @throws IOException: No idea
      */
     public static ArrayList<ArrayList<AudioInputStream>> copyStreams(ArrayList<AudioInputStream> input) throws IOException
     {
@@ -264,8 +263,8 @@ public class AudioPreprocessor
      * @param audio: The original audio that will be processed
      * @param model: The VAD model that will isolate out the segments of silence
      * @return: The preprocessed audio stream
-     * @throws IOException
-     * @throws TranslateException
+     * @throws IOException: No idea
+     * @throws TranslateException: No idea
      */
     public static AudioInputStream preprocessAudio(AudioInputStream audio, VAD model) throws IOException,
                                                                                              TranslateException
@@ -304,7 +303,7 @@ public class AudioPreprocessor
      * @param broken_stream: Stream that will be copied
      * @param length: The length of the stream (in bytes)
      * @return: A new AudioInputStream that has a defined frame length
-     * @throws IOException
+     * @throws IOException: No idea
      */
     public static AudioInputStream fixBrokenStream(AudioInputStream broken_stream, int length) throws IOException
     {
@@ -347,4 +346,27 @@ public class AudioPreprocessor
         return prim_mat;
     }
 
+    /**
+     * Converts the list of arrays of AudioInputStreams into just a list depending on the speaker chosen
+     * @param separated_speakers: ArrayList of AudioInputStream[] that will be separated
+     * @param s: Which AudioInputStream index to return
+     * @return: ArrayList of a singular speaker
+     */
+    public static ArrayList<AudioInputStream> separateArrayList(ArrayList<AudioInputStream[]> separated_speakers, int s)
+    {
+        // If s is more than 1 basically.
+        if (s > separated_speakers.get(0).length - 1)
+        {
+            throw new IllegalStateException("Only two speakers can be separated");
+        }
+
+        // Separate out the speaker
+        ArrayList<AudioInputStream> speaker = new ArrayList<>();
+        for (AudioInputStream[] arr: separated_speakers)
+        {
+            speaker.add(arr[s]);
+        }
+
+        return speaker;
+    }
 }
