@@ -1,4 +1,7 @@
+package com.eyehearyouspeak.transcription;
+
 import java.util.ArrayList;
+
 
 public class SpeakerIdentification
 {
@@ -6,20 +9,10 @@ public class SpeakerIdentification
     private ArrayList<String> names;
     private int clusters;
 
-    public SpeakerIdentification(ArrayList<Speaker> initial_speakers)
+    public SpeakerIdentification()
     {
-        this.speakers = initial_speakers;
-        this.clusters = speakers.size();
-
-        // Create list of names
-        ArrayList<String> names = new ArrayList<>();
-        for (Speaker s: speakers)
-        {
-            names.add(s.getName());
-        }
-
-        this.names = names;
-
+        this.speakers = new ArrayList<Speaker>();
+        this.names = new ArrayList<String>();
     }
 
     // Getters
@@ -31,6 +24,10 @@ public class SpeakerIdentification
     {
         return this.clusters;
     }
+    public ArrayList<String> getNames()
+    {
+        return this.getNames();
+    }
 
     /**
      * Adds a new speaker to the classifier
@@ -40,9 +37,12 @@ public class SpeakerIdentification
     public int addNewSpeaker(Speaker new_speaker)
     {
         // Check to make sure the speaker isnt already in the system
-        for (String speaker: this.names)
+        if (this.names != null)
         {
-            if (speaker.equalsIgnoreCase(new_speaker.getName())) return -1;
+            for (String speaker: this.names)
+            {
+                if (speaker.equalsIgnoreCase(new_speaker.getName())) return -1;
+            }
         }
 
         // If the speaker is not in the list
@@ -141,4 +141,5 @@ public class SpeakerIdentification
         return MatrixOperations.raiseVectorToPower(MatrixOperations.sumColumns(MatrixOperations.raiseMatrixToPower(
                 MatrixOperations.subMatrixFromVector(a, b), 2f)), 0.5f);
     }
+
 }

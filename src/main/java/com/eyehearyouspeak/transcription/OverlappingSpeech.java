@@ -1,3 +1,5 @@
+package com.eyehearyouspeak.transcription;
+
 import ai.djl.Device;
 import ai.djl.MalformedModelException;
 import ai.djl.Model;
@@ -40,7 +42,7 @@ public class OverlappingSpeech
     private NDArray sep_speakers;
 
     /**
-     * Creates the OverlappingSpeech object which is able to detect overlapping speech in an AudioInputStream and also
+     * Creates the com.eyehearyouspeak.transcription.OverlappingSpeech object which is able to detect overlapping speech in an AudioInputStream and also
      * separate out the overlapping speech into two AudioInputStream objects.
      *
      * @param model_dir: Directory where the model zip files are being stored.
@@ -215,6 +217,13 @@ public class OverlappingSpeech
 
     }
 
+    /**
+     * Detects segments of overlapping speech within the given audio segment
+     * @param audio_input: AudioInputStream that will be checked for overlapping speech
+     * @return: Timeline containing segments of where overlapping speech occurred.
+     * @throws IOException
+     * @throws TranslateException
+     */
     public Timeline detectOverlappingSpeech(AudioInputStream audio_input) throws IOException, TranslateException
     {
         // Log for debugging purposes
@@ -362,10 +371,10 @@ public class OverlappingSpeech
                 Float[] speaker2_window = separated_speech.get(w)[1];
                 for (int s = 0; s < separated_speech.get(0)[0].length; s++)
                 {
-                    // Speaker 1
+                    // com.eyehearyouspeak.transcription.Speaker 1
                     speaker1[(w * separated_speech.get(0)[0].length) + s] = speaker1_window[s];
 
-                    // Speaker 2
+                    // com.eyehearyouspeak.transcription.Speaker 2
                     speaker2[(w * separated_speech.get(0)[1].length) + s] = speaker2_window[s];
                 }
 
@@ -401,10 +410,18 @@ public class OverlappingSpeech
         return separated_streams;
     }
 
+    /**
+     * Grabs the frames for each segment of the given timeline. frames must contain the frames of the entire audio
+     * @param timeline: Timeline that contains the segments of frames
+     * @param entire_audio: All audio from the original stream, not just those in the timeline
+     * @param fs: Sample rate of the audio
+     * @param new_format: Desired audio format for the new streams
+     * @return
+     */
     public ArrayList<AudioInputStream> getAudioFromTimeline(Timeline timeline, float[] entire_audio,
                                                   float fs, AudioFormat new_format)
     {
-        // Determine how many segments of overlapping speech exist in the audio
+        // Determine how many segments of audio exist in the audio
         int n_segments = timeline.set.size();
         // Determine the number of frames for each segment
         int[] n_frames = new int[n_segments];
@@ -436,8 +453,8 @@ public class OverlappingSpeech
 
     /**
      * Creates a timeline out of the gaps between segments of the input timeline
-     * @param timeline: Timeline that will be inverted
-     * @return: Timeline containing segments in between the given timeline's segments
+     * @param timeline: com.eyehearyouspeak.transcription.Timeline that will be inverted
+     * @return: com.eyehearyouspeak.transcription.Timeline containing segments in between the given timeline's segments
      */
     public Timeline invertTimeline(Timeline timeline)
     {

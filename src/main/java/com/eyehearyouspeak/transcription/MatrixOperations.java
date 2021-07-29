@@ -1,3 +1,5 @@
+package com.eyehearyouspeak.transcription;
+
 public class MatrixOperations
 {
     /**

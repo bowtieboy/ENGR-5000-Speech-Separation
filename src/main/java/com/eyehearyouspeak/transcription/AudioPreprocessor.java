@@ -1,3 +1,5 @@
+package com.eyehearyouspeak.transcription;
+
 import ai.djl.translate.TranslateException;
 
 import javax.sound.sampled.AudioFormat;
@@ -9,7 +11,6 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import java.util.ArrayList;
-import java.util.List;
 
 public class AudioPreprocessor
 {
@@ -261,7 +262,7 @@ public class AudioPreprocessor
      * Performs necessary audio preprocessing functions to the input stream, such as filtering, silence separation, and
      * resampling.
      * @param audio: The original audio that will be processed
-     * @param model: The VAD model that will isolate out the segments of silence
+     * @param model: The com.eyehearyouspeak.transcription.VAD model that will isolate out the segments of silence
      * @return: The preprocessed audio stream
      * @throws IOException: No idea
      * @throws TranslateException: No idea
@@ -288,7 +289,7 @@ public class AudioPreprocessor
                 standard_fs, original_format.isBigEndian());
         AudioInputStream filtered_audio = convertToInputStream(filtered_frames, standard_format);
 
-        // Apply VAD model to the filtered audio
+        // Apply com.eyehearyouspeak.transcription.VAD model to the filtered audio
         AudioInputStream speech_only = model.separateSpeech(filtered_audio, standard_format);
 
         // If there is no speech in the audio clip, return null

@@ -1,3 +1,5 @@
+package com.eyehearyouspeak.transcription;
+
 import ai.djl.Device;
 import ai.djl.MalformedModelException;
 import ai.djl.Model;
@@ -20,9 +22,6 @@ import java.util.List;
 public class SpeakerEmbedder
 {
     private final Predictor<List<Float[]>, Float[][]> emb_predictor;
-    private final float fs = 16000;
-    private final int batch_size = 32;
-    private final int dimension = 512;
 
     public SpeakerEmbedder(String model_dir, Device device) throws MalformedModelException, IOException
     {
@@ -94,9 +93,10 @@ public class SpeakerEmbedder
             int frame_length = (int) audio_input.getFrameLength();
 
             // Determine if audio needs to be resampled
-            if (input_format.getSampleRate() != this.fs)
+            float fs = 16000;
+            if (input_format.getSampleRate() != fs)
             {
-                audio_input = AudioPreprocessor.resampleAudio(audio_input, this.fs);
+                audio_input = AudioPreprocessor.resampleAudio(audio_input, fs);
             }
 
             // Convert the audio to Floats array

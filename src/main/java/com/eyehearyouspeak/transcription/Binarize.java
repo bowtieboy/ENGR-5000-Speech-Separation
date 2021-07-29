@@ -1,4 +1,5 @@
-import java.sql.Time;
+package com.eyehearyouspeak.transcription;
+
 import java.util.ArrayList;
 
 public class Binarize
@@ -28,7 +29,7 @@ public class Binarize
         float start = timestamps[0];
         boolean label = data[0] > onset;
 
-        // Timeline meant to store 'active' segments
+        // com.eyehearyouspeak.transcription.Timeline meant to store 'active' segments
         Timeline active = new Timeline(new ArrayList<Segment>());
 
         for (int i = 0; i < n_samples; i++)

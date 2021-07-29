@@ -1,8 +1,8 @@
+package com.eyehearyouspeak.transcription;
+
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
 import ai.djl.translate.Batchifier;
-
-import java.awt.*;
 
 public class DetectionBatchifier implements Batchifier
 {

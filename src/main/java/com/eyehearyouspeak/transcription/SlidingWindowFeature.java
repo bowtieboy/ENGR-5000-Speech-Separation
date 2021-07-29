@@ -1,3 +1,5 @@
+package com.eyehearyouspeak.transcription;
+
 // TODO: Finish class
 public class SlidingWindowFeature
 {

@@ -1,3 +1,5 @@
+package com.eyehearyouspeak.transcription;
+
 public class Segment
 {
     public static final float SEGMENT_PRECISION = (float) Math.pow(10, -6);
@@ -66,7 +68,7 @@ public class Segment
 
     /**
      * Determine if one segment completely contains another
-     * @param other: Segment that is possibly within the current one
+     * @param other: com.eyehearyouspeak.transcription.Segment that is possibly within the current one
      * @return: Whether other is contained within this
      */
     public boolean contains(Segment other)
@@ -88,7 +90,7 @@ public class Segment
 
     /**
      * Determines if two segments intersect
-     * @param other: Segment that will be checked against for intersection
+     * @param other: com.eyehearyouspeak.transcription.Segment that will be checked against for intersection
      * @return If the two segments intersect or not
      */
     public boolean intersects(Segment other)

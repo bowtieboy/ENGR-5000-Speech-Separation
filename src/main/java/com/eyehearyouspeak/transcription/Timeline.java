@@ -1,4 +1,5 @@
-import java.sql.Time;
+package com.eyehearyouspeak.transcription;
+
 import java.util.ArrayList;
 
 public class Timeline
@@ -32,12 +33,15 @@ public class Timeline
     }
 
     /**
-     * Creates a Timeline that containts the gaps (lack of segments) of this Timeline
+     * Creates a com.eyehearyouspeak.transcription.Timeline that containts the gaps (lack of segments) of this com.eyehearyouspeak.transcription.Timeline
      * @return
      */
     public Timeline gaps()
     {
-        return new Timeline(gaps_iter());
+        ArrayList<Segment> segments = gaps_iter();
+        Timeline gap_tl = new Timeline(segments);
+        gap_tl.setFrames(this.frames);
+        return gap_tl;
     }
 
     /**
@@ -146,7 +150,7 @@ public class Timeline
 
     /**
      * Creates a segment that spans the entire timeline
-     * @return: Segment that is as long as the entire timeline
+     * @return: com.eyehearyouspeak.transcription.Segment that is as long as the entire timeline
      */
     private Segment extent()
     {
@@ -155,8 +159,8 @@ public class Timeline
 
     /**
      * Creates timeline of all segments that are contained within the given segment
-     * @param support: Segment that all segments in the timeline will be contained in
-     * @return: Timeline of segments contained in support
+     * @param support: com.eyehearyouspeak.transcription.Segment that all segments in the timeline will be contained in
+     * @return: com.eyehearyouspeak.transcription.Timeline of segments contained in support
      */
     public Timeline crop(Segment support)
     {
@@ -187,7 +191,7 @@ public class Timeline
     }
 
     /**
-     * Calculates the boundaries of the Timeline
+     * Calculates the boundaries of the com.eyehearyouspeak.transcription.Timeline
      * @return: Float array of the boundaries (first entry is the start, second entry is the end)
      */
     private float[] findBoundaries()

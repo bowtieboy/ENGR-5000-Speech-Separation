@@ -1,16 +1,19 @@
 import ai.djl.Device;
 import ai.djl.MalformedModelException;
 import ai.djl.translate.TranslateException;
+import com.eyehearyouspeak.transcription.*;
 
 import javax.sound.sampled.*;
 
 import java.io.File;
 import java.io.IOException;
 
+import java.lang.reflect.Array;
 import java.time.Duration;
 import java.time.Instant;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class Test {
 
@@ -48,13 +51,21 @@ public class Test {
         AudioInputStream speaker0 = AudioSystem.getAudioInputStream(input_speaker0);
         AudioInputStream speaker1 = AudioSystem.getAudioInputStream(input_speaker1);
 
-        // Apply pre-processing
-        AudioInputStream speech_only = AudioPreprocessor.preprocessAudio(audio, vad_model);
-        AudioInputStream speaker_processed0 = AudioPreprocessor.preprocessAudio(speaker0, vad_model);
-        AudioInputStream speaker_processed1 = AudioPreprocessor.preprocessAudio(speaker1, vad_model);
+        // Test the Eye Hear You Speak object
+        EyeHearYouSpeak transcriber = new EyeHearYouSpeak(model_path);
+        transcriber.addNewSpeaker(speaker0, "Matt");
+        transcriber.addNewSpeaker(speaker1, "Zoe");
 
-        // Test the speaker embedding model
-        testSpeakerEmbedding(speaker_processed0, speaker_processed1, speech_only, emb_model, ovl_models);
+        // Test the Eye Hear You Speak transcription capability
+        ArrayList<String> speech = transcriber.annotateAudio(audio);
+
+//        // Apply pre-processing
+//        AudioInputStream speech_only = AudioPreprocessor.preprocessAudio(audio, vad_model);
+//        AudioInputStream speaker_processed0 = AudioPreprocessor.preprocessAudio(speaker0, vad_model);
+//        AudioInputStream speaker_processed1 = AudioPreprocessor.preprocessAudio(speaker1, vad_model);
+//
+//        // Test the speaker embedding model
+//        testSpeakerEmbedding(speaker_processed0, speaker_processed1, speech_only, emb_model, ovl_models);
 
     }
 
@@ -128,8 +139,16 @@ public class Test {
         speakers.add(new_speaker0);
         speakers.add(new_speaker1);
 
-        // Create SpeakerIdentification class
-        SpeakerIdentification identifier = new SpeakerIdentification(speakers);
+        // Create com.eyehearyouspeak.transcription.SpeakerIdentification class
+        SpeakerIdentification identifier = new SpeakerIdentification();
+        for (Speaker s: speakers)
+        {
+            // If the user is already in the system
+            if (identifier.addNewSpeaker(s) == -1)
+            {
+                System.out.println("Speaker is already in the system, not adding them.");
+            }
+        }
 
         // Get the isolated speech
         ArrayList<AudioInputStream> test_list = new ArrayList<>();

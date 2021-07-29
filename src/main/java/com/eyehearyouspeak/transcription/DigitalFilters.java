@@ -1,3 +1,5 @@
+package com.eyehearyouspeak.transcription;
+
 // TODO: Implement threading into this class to improve performance
 public class DigitalFilters
 {

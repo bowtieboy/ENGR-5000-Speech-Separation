@@ -1,4 +1,4 @@
-import com.sun.jna.Union;
+package com.eyehearyouspeak.transcription;
 
 import java.util.ArrayList;
 
@@ -80,7 +80,7 @@ public class SlidingWindow
 
     /**
      * Crops the segment along the other given segment
-     * @param focus: Segment that the cropping will be applied against
+     * @param focus: com.eyehearyouspeak.transcription.Segment that the cropping will be applied against
      * @param mode: How the cropping will be done
      * @param fixed: Overrides focus's duration. If not desired, use -1
      * @return: Array of unique indices of matching segments
@@ -140,7 +140,7 @@ public class SlidingWindow
 
     /**
      * Convert the segment to a 0-indexed frame range
-     * @param segment: Segment that will be converted
+     * @param segment: com.eyehearyouspeak.transcription.Segment that will be converted
      * @return: 1st entry: index of first frame, 2nd entry: number of frames
      */
     public int[] segmentToRange(Segment segment)
@@ -158,7 +158,7 @@ public class SlidingWindow
      * Convert 0-indexed frame range to segment
      * @param first_frame: Index of first frame
      * @param num_frames: Number of frames
-     * @return: Segment
+     * @return: com.eyehearyouspeak.transcription.Segment
      */
     public Segment rangeToSegment(int first_frame, int num_frames)
     {
@@ -197,7 +197,7 @@ public class SlidingWindow
 
     /**
      * Creates an iterable list of segments that span the entirety of the given segment using the sliding windows parameters
-     * @param support: Segment that will be broken up
+     * @param support: com.eyehearyouspeak.transcription.Segment that will be broken up
      * @param align_last: Whether or not to use a final segment that aligns exactly with support regardless of step size
      * @return: An iterable list of segments
      */
@@ -235,7 +235,7 @@ public class SlidingWindow
     }
 
     /**
-     * Returns the ith Segment of the window
+     * Returns the ith com.eyehearyouspeak.transcription.Segment of the window
      * @param index: Which index in the window is desired
      * @return: The segment of ith index
      */

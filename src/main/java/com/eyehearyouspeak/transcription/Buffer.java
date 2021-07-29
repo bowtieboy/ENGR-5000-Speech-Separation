@@ -1,3 +1,5 @@
+package com.eyehearyouspeak.transcription;
+
 import java.util.Arrays;
 
 public class Buffer
