@@ -20,6 +20,8 @@ public class Test {
     public static void main (String[] args) throws
                                 MalformedModelException, IOException, UnsupportedAudioFileException, TranslateException
     {
+        // Used to record execution time
+        Instant start = Instant.now();
 
         // Get the needed files
         String input_file_path = ".\\vad_det_sep.wav";
@@ -52,20 +54,23 @@ public class Test {
         AudioInputStream speaker1 = AudioSystem.getAudioInputStream(input_speaker1);
 
         // Test the Eye Hear You Speak object
-        EyeHearYouSpeak transcriber = new EyeHearYouSpeak(model_path);
+        EyeHearYouSpeak transcriber = new EyeHearYouSpeak(model_path, 2);
         transcriber.addNewSpeaker(speaker0, "Matt");
         transcriber.addNewSpeaker(speaker1, "Zoe");
 
         // Test the Eye Hear You Speak transcription capability
         ArrayList<String> speech = transcriber.annotateAudio(audio);
 
-//        // Apply pre-processing
-//        AudioInputStream speech_only = AudioPreprocessor.preprocessAudio(audio, vad_model);
-//        AudioInputStream speaker_processed0 = AudioPreprocessor.preprocessAudio(speaker0, vad_model);
-//        AudioInputStream speaker_processed1 = AudioPreprocessor.preprocessAudio(speaker1, vad_model);
-//
-//        // Test the speaker embedding model
-//        testSpeakerEmbedding(speaker_processed0, speaker_processed1, speech_only, emb_model, ovl_models);
+        // Print the annotated file
+        for (String s: speech)
+        {
+            System.out.println(s);
+        }
+
+        // Print the execution time
+        Instant finish = Instant.now();
+        long time_elapsed = Duration.between(start, finish).toMillis();
+        System.out.printf("Time elapsed during ovl model path: %f\n", (float) time_elapsed / 1000f);
 
     }
 

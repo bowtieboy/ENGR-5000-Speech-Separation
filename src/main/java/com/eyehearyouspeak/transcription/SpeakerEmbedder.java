@@ -88,53 +88,64 @@ public class SpeakerEmbedder
 
         for (AudioInputStream audio_input: audio_input_list)
         {
-            // Grab the format of the audio
-            AudioFormat input_format = audio_input.getFormat();
-            int frame_length = (int) audio_input.getFrameLength();
-
-            // Determine if audio needs to be resampled
-            float fs = 16000;
-            if (input_format.getSampleRate() != fs)
-            {
-                audio_input = AudioPreprocessor.resampleAudio(audio_input, fs);
-            }
-
-            // Convert the audio to Floats array
-            float[] frames = AudioPreprocessor.convertToFloats(audio_input, frame_length,
-                    input_format.getSampleRate(), false);
-
-            // Create window parameters
-            SlidingWindow sliding_window = new SlidingWindow(1.0f / 16000f, 1.0f / 16000f,
-                                                             -0.5f / 16000f, Float.POSITIVE_INFINITY);
-            SlidingWindowFeature sliding_window_feature = new SlidingWindowFeature(frames, sliding_window);
-            SlidingWindow resolution = new SlidingWindow(4.0f, 1.0f, 0f, Float.POSITIVE_INFINITY);
-
-            // Break the sliding window into batches of the correct size
-            Segment support = sliding_window_feature.extent();
-            ArrayList<Segment> chunks =new ArrayList<>();
-            float fixed;
-            if (support.getDuration() < sliding_window.getDuration())
-            {
-                chunks.add(support);
-            }
-            else
-            {
-                chunks = resolution.slideWindowOverSupport(support, true);
-            }
-
-            // Crop the batches
-            ArrayList<Float[]> batches = new ArrayList<>();
-            for (Segment batch: chunks)
-            {
-                batches.add(sliding_window_feature.crop(batch, "center", resolution.getDuration()));
-            }
-
-            // Run the batches through the network
-            Float[][] fx = this.emb_predictor.predict(batches);
-
-            // Add embeddings to the list
-            embeddings_list.add(fx);
+            embeddings_list.add(calculateEmbeddings(audio_input));
         }
         return embeddings_list;
+    }
+
+    /**
+     * Creates embeddings for the AudioInputStream
+     * @param audio_input: AudioInputStream that will have embeddings calculated
+     * @return: Embeddings for the AudioInputStream
+     * @throws IOException: No idea
+     * @throws TranslateException: No idea
+     */
+    public Float[][] calculateEmbeddings(AudioInputStream audio_input) throws
+            IOException, TranslateException
+    {
+        // Grab the format of the audio
+        AudioFormat input_format = audio_input.getFormat();
+        int frame_length = (int) audio_input.getFrameLength();
+
+        // Determine if audio needs to be resampled
+        float fs = 16000;
+        if (input_format.getSampleRate() != fs)
+        {
+            audio_input = AudioPreprocessor.resampleAudio(audio_input, fs);
+        }
+
+        // Convert the audio to Floats array
+        float[] frames = AudioPreprocessor.convertToFloats(audio_input, frame_length,
+                input_format.getSampleRate(), false);
+
+        // Create window parameters
+        SlidingWindow sliding_window = new SlidingWindow(1.0f / 16000f, 1.0f / 16000f,
+                -0.5f / 16000f, Float.POSITIVE_INFINITY);
+        SlidingWindowFeature sliding_window_feature = new SlidingWindowFeature(frames, sliding_window);
+        SlidingWindow resolution = new SlidingWindow(4.0f, 1.0f, 0f, Float.POSITIVE_INFINITY);
+
+        // Break the sliding window into batches of the correct size
+        Segment support = sliding_window_feature.extent();
+        ArrayList<Segment> chunks =new ArrayList<>();
+        float fixed;
+        if (support.getDuration() < sliding_window.getDuration())
+        {
+            chunks.add(support);
+        }
+        else
+        {
+            chunks = resolution.slideWindowOverSupport(support, true);
+        }
+
+        // Crop the batches
+        ArrayList<Float[]> batches = new ArrayList<>();
+        for (Segment batch: chunks)
+        {
+            batches.add(sliding_window_feature.crop(batch, "center", resolution.getDuration()));
+        }
+
+        // Run the batches through the network and return the resulting matrix
+        return this.emb_predictor.predict(batches);
+
     }
 }

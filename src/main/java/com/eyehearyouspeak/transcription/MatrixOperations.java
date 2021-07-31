@@ -55,6 +55,28 @@ public class MatrixOperations
     }
 
     /**
+     * Grabs the index of the maximum element of the vector
+     * @param vec: Vector that will be operated on
+     * @return: Index of the maximum value of vec
+     */
+    public static int getMaxElementIdx(int[] vec)
+    {
+        int max = Integer.MIN_VALUE;
+        int max_idx = -1;
+
+        for (int i = 0; i < vec.length; i++)
+        {
+            if (max < vec[i])
+            {
+                max = vec[i];
+                max_idx = i;
+            }
+        }
+
+        return max_idx;
+    }
+
+    /**
      * Calculates the average value of the entire vector
      * @param vec: Vector that will be operated on
      * @return: The average value of vec

@@ -99,6 +99,9 @@ public class AudioPreprocessor
         // Grab the format of the input audio
         AudioFormat input_format = audio_input.getFormat();
 
+        // Reset the audio input stream just in case
+        audio_input.reset();
+
         // Perform checks in case audio was downsampled (bug where frame length shows zero)
         int frame_length;
         int bytes_available;
@@ -156,6 +159,28 @@ public class AudioPreprocessor
 
 
         return audio_floats;
+    }
+
+    /**
+     * Converts an AudioInputStream into a byte array
+     * @param audio_input: AudioInputStream that will be converted
+     * @return: Byte array of AudioInputStream data
+     * @throws IOException: No idea
+     */
+    public static byte[] convertStreamToBytes(AudioInputStream audio_input ) throws IOException
+    {
+        // Create byte array from the audio input
+        byte [] audio_bytes = new byte[audio_input.available()];
+
+        // Loop through input and store the bytes
+        for (int i = 0; i < audio_bytes.length; i++)
+        {
+            //noinspection ResultOfMethodCallIgnored
+            audio_input.read(audio_bytes);
+        }
+
+        // Return the byte array
+        return audio_bytes;
     }
 
     /**

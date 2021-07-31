@@ -1,5 +1,8 @@
 package com.eyehearyouspeak.transcription;
 
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioInputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 
 public class Timeline
@@ -13,6 +16,21 @@ public class Timeline
     {
         this.set = segments;
         this.timeline_boundaries = findBoundaries();
+    }
+
+    /**
+     * Use this constructor to create a timeline out of an entire AudioInputStream (0s to end)
+     * @param audio: AudioInputStream that will be converted to a Timeline
+     */
+    public Timeline(AudioInputStream audio) throws IOException
+    {
+        float end = audio.getFrameLength() / audio.getFormat().getFrameRate();
+        ArrayList<Segment> segments = new ArrayList<>();
+        segments.add(new Segment(0.0f, end));
+        this.set = segments;
+
+        this.timeline_boundaries = findBoundaries();
+        this.frames = AudioPreprocessor.convertToFloats(audio, (int) audio.getFrameLength(), audio.getFormat().getFrameRate(), false);
     }
 
     public void add (Segment segment)
@@ -101,6 +119,8 @@ public class Timeline
     {
         ArrayList<Segment> no_overlap = new ArrayList<Segment>();
 
+        // If there are no segments, return the emtpy array
+        if (this.set.size() == 0) return no_overlap;
         // Initialize first segment
         Segment new_segment = this.set.get(0);
 

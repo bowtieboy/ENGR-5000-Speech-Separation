@@ -8,6 +8,7 @@ import android.content.Context;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import java.io.*;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 
 public class EyeHearYouSpeak
@@ -17,11 +18,12 @@ public class EyeHearYouSpeak
     private OverlappingSpeech ovl;
     private SpeakerEmbedder emb;
     private SpeakerIdentification iden;
+    private SpeechTranscriber stt;
 
     // Define standard sample rate that all the models will use
     float fs = 16000;
 
-    public EyeHearYouSpeak(String model_path) throws MalformedModelException, IOException
+    public EyeHearYouSpeak(String model_path, int num_speakers) throws MalformedModelException, IOException
     {
         // Create the device that the models will be loaded onto. If a GPU is available, use that
         Device device = Device.cpu();
@@ -31,6 +33,7 @@ public class EyeHearYouSpeak
         this.emb = new SpeakerEmbedder(model_path, device);
         this.ovl = new OverlappingSpeech(model_path, device);
         this.iden = new SpeakerIdentification();
+        this.stt = new SpeechTranscriber(".\\stunning-strand-301922-21659aac8e8b.json", num_speakers);
     }
 
     // Getters
@@ -39,7 +42,7 @@ public class EyeHearYouSpeak
         return this.iden.getNames();
     }
 
-    // TODO: Finish this function
+    // TODO: Implement STT into the function
     public ArrayList<String> annotateAudio(AudioInputStream audio) throws TranslateException, IOException
     {
         // Create variable that will contain the final speech array
@@ -61,13 +64,21 @@ public class EyeHearYouSpeak
         Timeline overlapping_speech_tl = this.ovl.detectOverlappingSpeech(pre_processed);
         Timeline non_overlapping_speech_tl = this.ovl.invertTimeline(overlapping_speech_tl);
 
-        // Grab the AudioInputStreams that do not contain overlapping speech
+        // Grab the AudioInputStreams that do not contain overlapping speech. If overlapping speech exists, use timeline
+        // to get the data. Otherwise, use the original data
+        if (!(overlapping_speech_tl.set.size() > 0))
+        {
+            // Fix the non_overlapping timeline since it will have an empty set if no ovl occurred
+            non_overlapping_speech_tl = new Timeline(pre_processed);
+        }
         ArrayList<AudioInputStream> non_mixed_speakers = this.ovl.getAudioFromTimeline(non_overlapping_speech_tl,
                 non_overlapping_speech_tl.getFrames(), fs, standard_format);
+
 
         // TODO: Implement threading here to process both the mixed and non-mixed at the same time
 
         // If overlapping speech was detected
+        ArrayList<String[]> annotated_mixed = new ArrayList<>();
         if (overlapping_speech_tl.set.size() > 0)
         {
             // Grab the AudioInputStreams that contain overlapping speech segments
@@ -76,41 +87,55 @@ public class EyeHearYouSpeak
             // Separate out the overlapping speech
             ArrayList<AudioInputStream[]> separated_speakers = this.ovl.separateOverlappingSpeech(mixed_speakers);
 
-            // Convert the ArrayList of AudioInputStream arrays into two separate ArrayLists
-            ArrayList<AudioInputStream> separated_speaker_0 = AudioPreprocessor.separateArrayList(separated_speakers, 0);
-            ArrayList<AudioInputStream> separated_speaker_1 = AudioPreprocessor.separateArrayList(separated_speakers, 1);
-
             // Fix the broken AudioInputStreams
-            ArrayList<AudioInputStream> separated_speaker_0_fixed = new ArrayList<>();
-            ArrayList<AudioInputStream> separated_speaker_1_fixed = new ArrayList<>();
+            ArrayList<AudioInputStream[]> separated_speakers_fixed = new ArrayList<>();
+            AudioInputStream[] temp_arr = new AudioInputStream[2];
             int length;
-            for (int i = 0; i < separated_speaker_0.size(); i++)
+            for (int i = 0; i < separated_speakers.size(); i++)
             {
                 length = (int) mixed_speakers.get(i).getFrameLength();
-                separated_speaker_0_fixed.add(AudioPreprocessor.fixBrokenStream(separated_speaker_0.get(i), length));
-                separated_speaker_1_fixed.add(AudioPreprocessor.fixBrokenStream(separated_speaker_1.get(i), length));
+                temp_arr[0] = AudioPreprocessor.fixBrokenStream(separated_speakers.get(i)[0], length);
+                temp_arr[1] = AudioPreprocessor.fixBrokenStream(separated_speakers.get(i)[1], length);
+                separated_speakers_fixed.add(temp_arr);
             }
 
-            // Calculate embeddings for the mixed and non-mixed segments of speech
-            ArrayList<Float[][]> speaker_0_embeddings = this.emb.calculateBatchEmbeddings(separated_speaker_0_fixed);
-            ArrayList<Float[][]> speaker_1_embeddings = this.emb.calculateBatchEmbeddings(separated_speaker_1_fixed);
+            // Calculate embeddings for the mixed segments of speech
+            ArrayList<Float[][]> mixed_embeddings = new ArrayList<>();
+            for (int i = 0; i < separated_speakers_fixed.size(); i++)
+            {
+                mixed_embeddings.add(this.emb.calculateEmbeddings(separated_speakers_fixed.get(i)[0]));
+                mixed_embeddings.add(this.emb.calculateEmbeddings(separated_speakers_fixed.get(i)[1]));
+            }
 
             // Identify the speakers for each embedding
-            ArrayList<String> speaker_0_names = new ArrayList<>();
-            ArrayList<String> speaker_1_names = new ArrayList<>();
-            for (int i = 0; i < speaker_0_embeddings.size(); i++)
+            ArrayList<ArrayList<String>> speaker_names = new ArrayList<>();
+            for (Float[][] mat: mixed_embeddings)
             {
-                // Grab the speakers for each embedding
-                ArrayList<String> current_names_0 = this.iden.identifySpeakers(speaker_0_embeddings.get(i));
-                ArrayList<String> current_names_1 = this.iden.identifySpeakers(speaker_1_embeddings.get(i));
-
-                // Add the names for the embeddings to the non_mixed_names list
-                for (i = 0; i < current_names_0.size(); i++)
-                {
-                    speaker_0_names.add(current_names_0.get(i));
-                    speaker_1_names.add(current_names_1.get(i));
-                }
+                speaker_names.add(this.iden.identifySpeakers(mat));
             }
+
+            // Since it is known that the overlapping speech segments only contain one speaker, convert the lists to
+            // single strings
+            ArrayList<String> unique_speaker_names = new ArrayList<>();
+            for (ArrayList<String> candidates: speaker_names)
+            {
+                unique_speaker_names.add(this.iden.getMostLikely(candidates, 1)[0]);
+            }
+
+            // Transcribe the separated speech segments
+            ArrayList<String> channel_0, channel_1;
+            String[] transcribed_channels = new String[2];
+            for (int i = 0; i < separated_speakers_fixed.size(); i++)
+            {
+                channel_0 = this.stt.transcribeAudio(separated_speakers_fixed.get(i)[0]);
+                channel_1 = this.stt.transcribeAudio(separated_speakers_fixed.get(i)[1]);
+
+                transcribed_channels[0] = unique_speaker_names.get(i * separated_speakers_fixed.size()) + ": " + channel_0.get(0);
+                transcribed_channels[1] = unique_speaker_names.get(i * separated_speakers_fixed.size() + 1) + ": " + channel_1.get(0);
+
+                annotated_mixed.add(transcribed_channels);
+            }
+
         }
 
         // Calculate embeddings for the non-overlapping speech
@@ -127,12 +152,61 @@ public class EyeHearYouSpeak
             non_mixed_names.addAll(current_names);
         }
 
-        /*
-          At this point, the names of each speaker should be identified for both the overlapping speech segments (if
-          any existed within the AudioInputStream) and the non-overlapping speech. The next step is to get both the
-          STT values, as well as the times associated with each word. After this is done, combing the word timings, the
-          timeline segments, and the embedding windows should provide: who spoke, what was said, and when it was said.
-         */
+        // Annotate the sections of non-overlapping speech
+        ArrayList<String> annotated_non_mixed = new ArrayList<>();
+        int num_speakers;
+        for (AudioInputStream non_mixed_audio: non_mixed_speakers)
+        {
+            ArrayList<String> diarized_speech = this.stt.transcribeAudio(non_mixed_audio);
+
+            // Use the number of segments in the list to assign speakers to text
+            num_speakers = diarized_speech.size();
+
+            String[] most_likely_speakers = this.iden.getMostLikely(non_mixed_names, num_speakers);
+
+            // Loop through the diarized speech and assign speakers
+            for (int i = 0; i < most_likely_speakers.length; i++)
+            {
+                annotated_non_mixed.add(most_likely_speakers[i] + ": " + diarized_speech.get(i));
+            }
+        }
+
+        // If no overlapping speech was detected, assign captions based on diarization
+        if (!(overlapping_speech_tl.set.size() > 0))
+        {
+            captions = annotated_non_mixed;
+        }
+        else
+        {
+            // Use the timelines to determine the order of speech (overlapping vs non-overlapping)
+            for (int i = 0; i < non_overlapping_speech_tl.set.size(); i++)
+            {
+                // Make sure no out of bounds exceptions occur
+                if (overlapping_speech_tl.set.size() > i)
+                {
+                    // If non-ovl segment starts before ovl segment
+                    if (non_overlapping_speech_tl.set.get(i).getStart() < overlapping_speech_tl.set.get(i).getStart())
+                    {
+                        captions.add(annotated_non_mixed.get(i));
+                        captions.add(annotated_mixed.get(i)[0]);
+                        captions.add(annotated_mixed.get(i)[1]);
+                    }
+                    else
+                    {
+                        captions.add(annotated_mixed.get(i)[0]);
+                        captions.add(annotated_mixed.get(i)[1]);
+                        captions.add(annotated_non_mixed.get(i));
+                    }
+                }
+                else captions.add(annotated_non_mixed.get(i));
+            }
+            // If overlapping speech has more segments than non-overlapping, add the last segment to the captions
+            if (overlapping_speech_tl.set.size() > non_overlapping_speech_tl.set.size())
+            {
+                captions.add(annotated_mixed.get(annotated_mixed.size() - 1)[0]);
+                captions.add(annotated_mixed.get(annotated_mixed.size() - 1)[1]);
+            }
+        }
 
         return captions;
     }

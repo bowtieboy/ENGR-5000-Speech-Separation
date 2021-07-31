@@ -142,4 +142,79 @@ public class SpeakerIdentification
                 MatrixOperations.subMatrixFromVector(a, b), 2f)), 0.5f);
     }
 
+    public String[] getMostLikely(ArrayList<String> names, int num_speakers)
+    {
+        String[] speaker_names = new String[num_speakers];
+
+        ArrayList<String> unique_names = getUniqueNames(names);
+        // If the number of unique speakers is exactly equal to the number of unique, return the unique speakers
+        if (unique_names.size() == num_speakers)
+        {
+            for (int i = 0; i < num_speakers; i++)
+            {
+                speaker_names[i] = unique_names.get(i);
+            }
+            return speaker_names;
+        }
+
+        // If there are more unique speakers than diarized speaker (error within the identification), sum the unique
+        // speaker embeddings to get the most likely speakers
+        int[] occurrences = new int[unique_names.size()];
+        for (String name: names)
+        {
+            for (int i = 0; i < unique_names.size(); i++)
+            {
+                if (name == unique_names.get(i)) occurrences[i] += 1;
+            }
+        }
+
+        // Use how often the names occurred to determine the most likely speakers
+        int max_idx;
+        // If there are more num_speakers than unique speakers, use the regular allocation method
+        if (num_speakers < unique_names.size())
+        {
+            for (int i = 0; i < speaker_names.length; i++)
+            {
+                max_idx = MatrixOperations.getMaxElementIdx(occurrences);
+                speaker_names[i] = unique_names.get(max_idx);
+                occurrences[max_idx] = Integer.MIN_VALUE;
+            }
+        }
+        else
+        {
+            // If there are less unique speakers than the diarization separation, use the speaker with the most ids
+            // as the repeated speaker
+            int repeated_idx = MatrixOperations.getMaxElementIdx(occurrences);
+            for (int i = 0; i < speaker_names.length - 1; i++)
+            {
+                max_idx = MatrixOperations.getMaxElementIdx(occurrences);
+                speaker_names[i] = unique_names.get(max_idx);
+                occurrences[max_idx] = Integer.MIN_VALUE;
+            }
+            speaker_names[speaker_names.length - 1] = unique_names.get(repeated_idx);
+        }
+
+
+        return speaker_names;
+    }
+
+    /**
+     * Parses through the input and creates a new list containing only the unique names
+     * @param names: List of all names
+     * @return: Names that occur in the input at least once
+     */
+    private ArrayList<String> getUniqueNames(ArrayList<String> names)
+    {
+        ArrayList<String> unique_names = new ArrayList<>();
+        for (String name: names)
+        {
+            if (!unique_names.contains(name))
+            {
+                unique_names.add(name);
+            }
+        }
+
+        return unique_names;
+    }
+
 }
