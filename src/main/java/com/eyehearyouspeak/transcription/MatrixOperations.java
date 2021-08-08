@@ -242,4 +242,65 @@ public class MatrixOperations
         // If value is not in the array, throw an error
         throw new IllegalStateException("Array did not contain the known value.");
     }
+
+    /**
+     * Calculates the magnitude of the given vector
+     * @param v: Vector that will be operated on
+     * @return: The magnitude of v
+     */
+    public static float getVectorMagnitude(float [] v)
+    {
+        float mag = 0;
+
+        for (float f: v)
+        {
+            mag += f * f;
+        }
+
+        return (float) Math.sqrt(mag);
+    }
+
+    /**
+     * Calculates the magnitude of each row of the matrix
+     * @param mat: Matrix that will be operated on
+     * @return: Vector containing the magnitude of each row of mat
+     */
+    public static float[] getMatrixMagnitudes(float [][] mat)
+    {
+        float[] mag = new float[mat.length];
+
+        int idx = 0;
+        for (float[] row: mat)
+        {
+            mag[idx] = getVectorMagnitude(row);
+            idx++;
+        }
+
+        return mag;
+    }
+
+    /**
+     * Calculates the average values for each column of the given matrix
+     * @param mat: Matrix that will be opearted on
+     * @return: The average value for each column of mat
+     */
+    public static float[] averageMatrix(float[][] mat)
+    {
+        float[] avg = new float[mat[0].length];
+        // Sum all the columns
+        for (float[] row: mat)
+        {
+            for (int i = 0; i < avg.length; i++)
+            {
+                avg[i] += row[i];
+            }
+        }
+        // Divide by the number of rows
+        for (int i = 0; i < avg.length; i++)
+        {
+            avg[i] /= mat.length;
+        }
+
+        return avg;
+    }
 }

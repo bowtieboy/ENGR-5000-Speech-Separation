@@ -24,23 +24,15 @@ public class Test {
         Instant start = Instant.now();
 
         // Get the needed files
-        String input_file_path = ".\\vad_det_sep.wav";
+        String input_file_path = ".\\final_pres.wav";
         File input_file = new File(input_file_path);
 
         String input_speaker_path0 = ".\\matt.wav";
         File input_speaker0 = new File(input_speaker_path0);
-        String input_speaker_path1 = ".\\zoe.wav";
+        String input_speaker_path1 = ".\\mel.wav";
         File input_speaker1 = new File(input_speaker_path1);
 
-        // If a gpu is available, use that. Otherwise use the cpu
-        Device device;
-        if (Device.getGpuCount() > 0)
-        {
-            device = Device.gpu();
-        } else device = Device.cpu();
-
-        // FIXME: Bug where data isn't being loaded onto the GPU for calculations, but it needs to be. Use CPU for now
-        device = Device.cpu();
+        Device device = Device.cpu();
 
         // Load the models
         String model_path = ".\\src\\main\\resources";
@@ -56,7 +48,7 @@ public class Test {
         // Test the Eye Hear You Speak object
         EyeHearYouSpeak transcriber = new EyeHearYouSpeak(model_path, 2);
         transcriber.addNewSpeaker(speaker0, "Matt");
-        transcriber.addNewSpeaker(speaker1, "Zoe");
+        transcriber.addNewSpeaker(speaker1, "Melanie");
 
         // Test the Eye Hear You Speak transcription capability
         ArrayList<String> speech = transcriber.annotateAudio(audio);

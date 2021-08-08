@@ -12,6 +12,7 @@ import java.io.InputStream;
 
 import java.util.ArrayList;
 
+// TODO: Create AudioInputStream wrapper for Android
 public class AudioPreprocessor
 {
     private static float standard_fs = 16000f;

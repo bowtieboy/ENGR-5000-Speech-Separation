@@ -42,7 +42,6 @@ public class EyeHearYouSpeak
         return this.iden.getNames();
     }
 
-    // TODO: Implement STT into the function
     public ArrayList<String> annotateAudio(AudioInputStream audio) throws TranslateException, IOException
     {
         // Create variable that will contain the final speech array
@@ -165,7 +164,7 @@ public class EyeHearYouSpeak
             String[] most_likely_speakers = this.iden.getMostLikely(non_mixed_names, num_speakers);
 
             // Loop through the diarized speech and assign speakers
-            for (int i = 0; i < most_likely_speakers.length; i++)
+            for (int i = 0; i < diarized_speech.size(); i++)
             {
                 annotated_non_mixed.add(most_likely_speakers[i] + ": " + diarized_speech.get(i));
             }

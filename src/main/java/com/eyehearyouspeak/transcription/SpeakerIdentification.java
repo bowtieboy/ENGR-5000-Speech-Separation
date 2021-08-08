@@ -2,7 +2,7 @@ package com.eyehearyouspeak.transcription;
 
 import java.util.ArrayList;
 
-
+// TODO: Implement kNN algorithm for better classification accuracy.
 public class SpeakerIdentification
 {
     private ArrayList<Speaker> speakers;
@@ -88,58 +88,32 @@ public class SpeakerIdentification
      */
     private float[] classify(Float[] embedding)
     {
-        // Calculate the distances between this embedding and each speakers known embeddings
+        float[] mins = new float[this.clusters];
         ArrayList<float[]> distances = new ArrayList<>();
-        for (Speaker s: this.speakers)
+        // Calculate the distances between this embedding and each speakers known embeddings
+        for (int i = 0; i < this.clusters; i++)
         {
-            distances.add(euclideanDistance(embedding, s.getEmbeddings()));
+            distances.add(euclideanDistances(embedding, this.speakers.get(i).getEmbeddings()));
         }
 
-        // Determine the minimum n distances for each row, where n is the number of known speakers
-        ArrayList<float[]> min_distances = new ArrayList<>();
-        float current_min;
-        float current_idx;
-        for (float[] row: distances)
+        // Find the magnitude of the distances
+        for (int i = 0; i < distances.size(); i++)
         {
-            float[] current_min_distances = new float[this.clusters];
-            for (int i = 0; i < this.clusters; i++)
-            {
-                // Grab the minimum value and the index for it
-                current_min = MatrixOperations.getMinElement(row);
-                current_idx = MatrixOperations.getIndexForElement(row, current_min);
-
-                // Store the values
-                current_min_distances[i] = current_min;
-
-                // Set the index to be infinity so it is no longer the minimum
-                row[(int) current_idx] = Float.POSITIVE_INFINITY;
-            }
-            // Store the current minimum distances
-            min_distances.add(current_min_distances);
-
+            mins[i] = MatrixOperations.getVectorMagnitude(distances.get(i));
         }
 
-        // Determine the average lowest value for each of the speakers
-        float[] avg_min = new float[this.clusters];
-        for (int i = 0; i < avg_min.length; i++)
-        {
-            avg_min[i] = MatrixOperations.getAverageElement(min_distances.get(i));
-        }
-
-        // Return the average minimums
-        return avg_min;
+        return mins;
     }
 
     /**
      * Calculates the distance between the first vector and every row of the second vector
-     * @param a: Vector that will be subtracted from
-     * @param b: Matrix that contains each row that will subtract from a
+     * @param a : Vector that will be subtracted from
+     * @param b : Matrix that contains each row that will subtract from a
      * @return: The distance between all of the vectors
      */
-    private float[] euclideanDistance(Float[] a, Float[][] b)
+    private float[] euclideanDistances(Float[] a, Float[][] b)
     {
-        return MatrixOperations.raiseVectorToPower(MatrixOperations.sumColumns(MatrixOperations.raiseMatrixToPower(
-                MatrixOperations.subMatrixFromVector(a, b), 2f)), 0.5f);
+        return MatrixOperations.getMatrixMagnitudes(MatrixOperations.subMatrixFromVector(a, b));
     }
 
     public String[] getMostLikely(ArrayList<String> names, int num_speakers)

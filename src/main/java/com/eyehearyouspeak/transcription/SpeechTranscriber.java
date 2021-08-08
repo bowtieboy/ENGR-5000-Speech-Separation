@@ -46,6 +46,7 @@ public class SpeechTranscriber
                         .build();
     }
 
+    // TODO: Implement way of including the number of speakers that the diarization detected in the clip. This could improve the accuracy of the speaker identification
     public ArrayList<String> transcribeAudio(AudioInputStream audio) throws IOException
     {
         System.out.println("Transcribing audio");
